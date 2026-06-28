@@ -1,26 +1,16 @@
 import { NextRequest } from "next/server";
-import { verifyAccessToken } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getAuthToken, apiError, apiSuccess } from "@/lib/errors";
+import { apiError, apiSuccess, authenticateRequest } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
-    const token = getAuthToken(request);
-    if (!token) {
-      return apiError("UNAUTHORIZED", "Missing authorization token.");
-    }
-
-    let payload;
-    try {
-      payload = await verifyAccessToken(token);
-    } catch {
-      return apiError("TOKEN_EXPIRED", "Access token has expired.");
-    }
+    const auth = await authenticateRequest(request);
+    if (!auth) return apiError("UNAUTHORIZED", "Missing authorization token.");
 
     const user = await db.user.findUnique({
-      where: { id: payload.sub },
+      where: { id: auth.userId },
       include: { twoFactorAuth: true },
     });
 
