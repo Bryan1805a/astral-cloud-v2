@@ -176,7 +176,7 @@ For development, Nginx is optional — Next.js dev server can run directly on po
 
 ## 5. Development Environment
 
-During development, the entire stack runs directly on the developer's machine. No nested virtualization is needed — Docker Engine runs natively.
+During development, the entire stack runs inside Docker containers. No host installations (Node.js, npm, pnpm, Python) are required — only Docker Engine and Git are needed on the host. All application processes, infrastructure services, and tooling execute inside containers, following the project's Docker-first development philosophy.
 
 ### Topology
 
@@ -184,31 +184,26 @@ During development, the entire stack runs directly on the developer's machine. N
  ┌──────────────────────────────────────────────────────────────────┐
  │                     Developer Machine (Linux / macOS / Windows)   │
  │                                                                  │
- │  ┌───────────┐   ┌───────────┐                                  │
- │  │ Next.js   │   │  Worker   │                                  │
- │  │ :3000     │   │ (Node.js) │                                  │
- │  │           │   │           │                                  │
- │  │ npm run   │   │ npm run   │                                  │
- │  │ dev       │   │ dev:worker│                                  │
- │  └─────┬─────┘   └─────┬─────┘                                  │
- │        │               │                                        │
- │        └───────┬───────┘                                        │
- │                │                                                │
- │  ┌─────────────┴────────────┐                                   │
- │  │    Docker Engine         │                                   │
- │  │    (Docker Desktop or    │                                   │
- │  │     native daemon)       │                                   │
- │  │                          │                                   │
- │  │  ┌──────────┐ ┌──────┐   │                                   │
- │  │  │PostgreSQL│ │Redis │   │                                   │
- │  │  │ :5432    │ │:6379 │   │                                   │
- │  │  └──────────┘ └──────┘   │                                   │
- │  │                          │                                   │
- │  │  ┌──────────────────┐    │                                   │
- │  │  │ Customer server   │    │  ← Dev/test containers           │
- │  │  │ containers        │    │    created by the worker         │
- │  │  └──────────────────┘    │                                   │
- │  └──────────────────────────┘                                   │
+ │  ┌────────────────────────────────────────────────────────────┐  │
+ │  │                   Docker Engine                             │  │
+ │  │                                                            │  │
+ │  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │  │
+ │  │  │ Next.js  │  │  Worker  │  │PostgreSQL│  │  Redis   │   │  │
+ │  │  │ web      │  │ (Node.js)│  │ :5432    │  │ :6379    │   │  │
+ │  │  │ :3000    │  │          │  │          │  │          │   │  │
+ │  │  │          │  │ (hot-    │  │          │  │          │   │  │
+ │  │  │ (hot-    │  │  reload) │  │          │  │          │   │  │
+ │  │  │  reload) │  │          │  │          │  │          │   │  │
+ │  │  └──────────┘  └──────────┘  └──────────┘  └──────────┘   │  │
+ │  │                                                            │  │
+ │  │  ┌──────────────────┐                                      │  │
+ │  │  │ Customer server   │  ← Dev/test containers              │  │
+ │  │  │ containers        │    created by the worker            │  │
+ │  │  └──────────────────┘                                      │  │
+ │  │                                                            │  │
+ │  └────────────────────────────────────────────────────────────┘  │
+ │                                                                  │
+ │  VS Code / Browser → http://localhost:3000                       │
  │                                                                  │
  └──────────────────────────────────────────────────────────────────┘
 ```
@@ -217,51 +212,53 @@ During development, the entire stack runs directly on the developer's machine. N
 
 | Component       | Runs on                   | Notes                                                       |
 |-----------------|---------------------------|-------------------------------------------------------------|
-| Next.js Web App | Host machine (directly)   | `npm run dev`, port 3000                                    |
-| BullMQ Worker   | Host machine (directly)   | `npm run dev:worker` in a separate terminal                 |
+| Next.js Web App | Docker container          | `docker compose up`, port 3000. Source code volume-mounted for hot-reload. |
+| BullMQ Worker   | Docker container          | Separate service in compose file. Source code volume-mounted for hot-reload. |
 | PostgreSQL      | Docker Engine             | Defined in `docker/docker-compose.dev.yml`                  |
 | Redis           | Docker Engine             | Defined in `docker/docker-compose.dev.yml`                  |
-| Customer        | Docker Engine             | Created by worker — same daemon, isolated by containers     |
+| Customer        | Docker Engine             | Created by worker — same daemon, isolated by containers. Worker container mounts Docker socket (`/var/run/docker.sock`) to create customer containers. |
 
 ### Prerequisites
 
 - **Docker Engine**: Docker Desktop (macOS/Windows) or native `docker-ce` (Linux). No virtualization extensions needed beyond standard container support.
-- **RAM**: Minimum **8 GB**. Docker uses ~2 GB; Next.js + worker use ~1 GB; test containers consume remaining.
+- **RAM**: Minimum **8 GB**. Docker uses ~2 GB for infrastructure; web + worker containers use ~1 GB; test containers consume remaining.
 - **Disk**: ~10 GB free for container images and volumes.
-- **Node.js**: 20 LTS or later for running Next.js and the worker process.
+- **Git**: Required on the host for source control.
+- **VS Code** (recommended): With Dev Containers extension for an integrated development experience. Plain editor + browser also works.
+
+The host machine must NOT have Node.js, npm, pnpm, Python, or any other runtime installed. All tooling and runtimes live inside Docker containers.
 
 ### Getting Started
 
-1. Start the infrastructure dependencies:
+1. Start all services (web, worker, postgres, redis):
    ```bash
    docker compose -f docker/docker-compose.dev.yml up -d
    ```
-2. Run database migrations:
+2. Run database migrations (inside the web container):
    ```bash
-   npx prisma migrate dev
+   docker compose -f docker/docker-compose.dev.yml exec web npx prisma migrate dev
    ```
-3. Start the web app:
+3. The web app is now running at `http://localhost:3000` with hot-reload enabled.
+4. View logs:
    ```bash
-   npm run dev
+   docker compose -f docker/docker-compose.dev.yml logs -f web worker
    ```
-4. In a second terminal, start the worker:
-   ```bash
-   npm run dev:worker
+5. Seed a node record pointing at the local Docker daemon (the worker container mounts the Docker socket, so the endpoint is the socket path inside the container):
    ```
-5. Seed a node record pointing at the local Docker daemon:
+   dockerEndpoint = "unix:///var/run/docker.sock"
    ```
-   dockerEndpoint = "unix:///var/run/docker.sock"  (or "tcp://localhost:2375")
-   ```
+
+All development commands (`prisma generate`, `prisma migrate`, `npm install`, `npm run test`) execute inside containers via `docker compose exec`. No npm, Node.js, or Prisma CLI is installed on the host.
 
 ### Mock Container Runtime
 
-For faster development and testing without Docker, a mock implementation of the `ContainerRuntime` interface (defined in `packages/worker/src/runtime/types.ts`) returns simulated container IDs and IPs instantly — no Docker Engine required. Development switches between mock and real Docker via an environment variable:
+For faster development and testing without Docker, a mock implementation of the `ContainerRuntime` interface (defined in `packages/worker/src/runtime/types.ts`) returns simulated container IDs and IPs instantly — no Docker Engine required. Development switches between mock and real Docker via an environment variable set in the compose file:
 
 ```env
 CONTAINER_RUNTIME_DRIVER=mock    # or "docker"
 ```
 
-Both drivers implement the same TypeScript interface, so all business logic, API routes, and UI development can continue regardless of which is active. This is the same abstraction that allows swapping Docker for another container runtime in the future.
+Both drivers implement the same TypeScript interface, so all business logic, API routes, and UI development can continue regardless of which is active. This is the same abstraction that allows swapping Docker for another container runtime in the future. When using the mock driver, the Docker socket mount and Docker daemon are not needed.
 
 ---
 
