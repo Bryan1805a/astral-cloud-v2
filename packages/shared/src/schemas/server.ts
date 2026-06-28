@@ -17,9 +17,9 @@ export const createServerSchema = z
         /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/,
         "Hostname must be lowercase alphanumeric with hyphens"
       ),
-    planId: z.string().uuid().nullable(),
-    imageId: z.string().uuid().nullable(),
-    snapshotId: z.string().uuid().nullable(),
+    planId: z.string().uuid().nullable().optional(),
+    imageId: z.string().uuid().nullable().optional(),
+    snapshotId: z.string().uuid().nullable().optional(),
     regionId: z.string().uuid(),
     sshKeyId: z.string().uuid().optional(),
     billingModel: z.nativeEnum(BillingModel),
