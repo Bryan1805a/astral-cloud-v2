@@ -208,6 +208,38 @@ export async function createServer(userId: string, input: CreateServerInput, ipA
     },
   });
 
+  await db.firewallRule.createMany({
+    data: [
+      {
+        serverId: server.id,
+        protocol: "TCP",
+        portRange: "22",
+        sourceCidr: "0.0.0.0/0",
+        action: "ALLOW",
+        priority: 1,
+        description: "Default SSH rule",
+      },
+      {
+        serverId: server.id,
+        protocol: "TCP",
+        portRange: "80",
+        sourceCidr: "0.0.0.0/0",
+        action: "ALLOW",
+        priority: 2,
+        description: "Default HTTP rule",
+      },
+      {
+        serverId: server.id,
+        protocol: "TCP",
+        portRange: "443",
+        sourceCidr: "0.0.0.0/0",
+        action: "ALLOW",
+        priority: 3,
+        description: "Default HTTPS rule",
+      },
+    ],
+  });
+
   await serverQueue.add(JobType.PROVISION, {
     type: JobType.PROVISION,
     serverId: server.id,
