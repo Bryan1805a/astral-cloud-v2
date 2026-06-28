@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
+import { createHash, randomBytes } from "crypto";
 import { db } from "./db";
 
 const JWT_SECRET = new TextEncoder().encode(
@@ -91,4 +92,35 @@ export function getClientIp(request: Request): string {
   const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) return forwarded.split(",")[0].trim();
   return "127.0.0.1";
+}
+
+function sha256(data: string): string {
+  return createHash("sha256").update(data).digest("hex");
+}
+
+export function generateApiKey(): { fullKey: string; prefix: string; hash: string } {
+  const secret = randomBytes(32).toString("hex");
+  const fullKey = `ak_${secret}`;
+  const prefix = fullKey.slice(0, 8);
+  const hash = sha256(fullKey);
+  return { fullKey, prefix, hash };
+}
+
+export async function verifyApiKey(key: string): Promise<{ userId: string; role: string } | null> {
+  const hash = sha256(key);
+  const apiKey = await db.apiKey.findFirst({
+    where: { keyHash: hash },
+    include: { user: { select: { id: true, role: true, status: true, deletedAt: true } } },
+  });
+
+  if (!apiKey) return null;
+  if (apiKey.expiresAt && apiKey.expiresAt < new Date()) return null;
+  if (!apiKey.user || apiKey.user.deletedAt || apiKey.user.status !== "ACTIVE") return null;
+
+  await db.apiKey.update({
+    where: { id: apiKey.id },
+    data: { lastUsedAt: new Date() },
+  });
+
+  return { userId: apiKey.user.id, role: apiKey.user.role };
 }

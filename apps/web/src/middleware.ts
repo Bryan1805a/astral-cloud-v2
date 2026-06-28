@@ -27,8 +27,10 @@ export async function middleware(request: NextRequest) {
 
   if (isPublic) return NextResponse.next();
 
-  const token = request.headers.get("authorization")?.replace("Bearer ", "")
-    || request.cookies.get("access_token")?.value;
+  const authHeader = request.headers.get("authorization") || "";
+  const tokenStr = authHeader.replace("Bearer ", "");
+  const cookieToken = request.cookies.get("access_token")?.value;
+  const token = tokenStr || cookieToken;
 
   if (!token) {
     if (pathname.startsWith("/api/")) {
@@ -42,9 +44,17 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  if (token.startsWith("ak_")) {
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set("x-auth-method", "api-key");
+    requestHeaders.set("x-api-key", token);
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  }
+
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
     const requestHeaders = new Headers(request.headers);
+    requestHeaders.set("x-auth-method", "jwt");
     requestHeaders.set("x-user-id", payload.sub as string);
     requestHeaders.set("x-user-role", payload.role as string);
     return NextResponse.next({ request: { headers: requestHeaders } });

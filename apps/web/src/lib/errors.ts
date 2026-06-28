@@ -1,4 +1,42 @@
 import { NextResponse } from "next/server";
+import { verifyAccessToken, verifyApiKey } from "./auth";
+
+export async function authenticateRequest(
+  request: Request
+): Promise<{ userId: string; role: string } | null> {
+  const authMethod = request.headers.get("x-auth-method");
+
+  if (authMethod === "jwt") {
+    const userId = request.headers.get("x-user-id");
+    const role = request.headers.get("x-user-role");
+    if (!userId || !role) return null;
+    return { userId, role };
+  }
+
+  if (authMethod === "api-key") {
+    const apiKey = request.headers.get("x-api-key");
+    if (!apiKey) return null;
+    return verifyApiKey(apiKey);
+  }
+
+  const authHeader = request.headers.get("authorization") || "";
+  const token = authHeader.replace("Bearer ", "");
+
+  if (token.startsWith("ak_")) {
+    return verifyApiKey(token);
+  }
+
+  if (token) {
+    try {
+      const payload = await verifyAccessToken(token);
+      return { userId: payload.sub, role: payload.role };
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
 
 export interface ApiError {
   code: string;
