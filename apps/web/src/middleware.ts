@@ -15,6 +15,7 @@ const publicPaths = [
   "/api/auth/forgot-password",
   "/api/auth/reset-password",
   "/api/auth/verify-email",
+  "/api/stripe/webhook",
 ];
 
 export async function middleware(request: NextRequest) {
