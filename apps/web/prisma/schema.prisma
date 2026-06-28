@@ -1,0 +1,1234 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CUSTOMER
+  STAFF
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  LOCKED
+  PENDING_VERIFICATION
+  SUSPENDED
+}
+
+model User {
+  id                   String    @id @default(uuid())
+  username             String    @unique
+  email                String    @unique
+  passwordHash         String
+  role                 UserRole  @default(CUSTOMER)
+  status               UserStatus @default(PENDING_VERIFICATION)
+  balance              Decimal   @default(0) @db.Decimal(12, 2)
+  referralCode         String    @unique
+  taxExempt            Boolean   @default(false)
+  billingAddress       Json?
+  spendingCap          Decimal?  @db.Decimal(10, 2)
+  failedLoginAttempts  Int       @default(0)
+  lockedUntil          DateTime?
+  lastLoginAt          DateTime?
+  emailVerifiedAt      DateTime?
+  termsAcceptedVersion String?
+  maxServers           Int       @default(5)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  deletedAt            DateTime?
+
+  twoFactorAuth    TwoFactorAuth?
+  sessions         Session[]
+  apiKeys          ApiKey[]
+  sshKeys          SSHKey[]
+  serverInstances  ServerInstance[]
+  payments         Payment[]
+  paymentMethods   PaymentMethod[]
+  invoices         Invoice[]
+  tickets          Ticket[]          @relation("TicketCustomer")
+  assignedTickets  Ticket[]          @relation("TicketAssignee")
+  ticketMessages   TicketMessage[]
+  notifications    Notification[]
+  notificationPref NotificationPreference?
+  referralsAsReferrer Referral[]     @relation("ReferralReferrer")
+  referralsAsReferee  Referral[]     @relation("ReferralReferee")
+  referralPayouts     ReferralPayout[]
+  vouchersCreated     Voucher[]
+  voucherUsages       VoucherUsage[]
+  blogPosts           BlogPost[]
+  privateNetworks     PrivateNetwork[]
+  floatingIps         FloatingIp[]
+  blockVolumes        BlockVolume[]
+  webhookEndpoints    WebhookEndpoint[]
+  auditLogs           AuditLog[]
+  vpsTags             VpsTag[]
+  announcements       Announcement[]
+  termsAcceptances    TermsAcceptance[]
+  cookieConsents      CookieConsent[]
+  gdprRequests        GdprRequest[]
+  abuseReports        AbuseReport[]   @relation("AbuseReporter")
+  reviewedAbuseReports AbuseReport[]  @relation("AbuseReviewer")
+  emailTemplatesUpdated SystemSetting[]
+  featureFlagsCreated   FeatureFlag[]
+  impersonationSessionsAsAdmin  ImpersonationSession[] @relation("ImpersonationAdmin")
+  impersonationSessionsAsTarget ImpersonationSession[] @relation("ImpersonationTarget")
+  snapshots              Snapshot[]
+
+  @@index([email, deletedAt])
+  @@index([username, deletedAt])
+}
+
+model TwoFactorAuth {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  secret      String
+  enabled     Boolean  @default(false)
+  backupCodes Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Session {
+  id               String   @id @default(uuid())
+  userId           String
+  refreshTokenHash String
+  userAgent        String?  @db.VarChar(512)
+  ipAddress        String   @db.VarChar(45)
+  expiresAt        DateTime
+  createdAt        DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model ApiKey {
+  id          String    @id @default(uuid())
+  userId      String
+  label       String    @db.VarChar(64)
+  keyPrefix   String    @db.VarChar(8)
+  keyHash     String    @db.VarChar(128)
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model SSHKey {
+  id        String   @id @default(uuid())
+  userId    String
+  label     String   @db.VarChar(64)
+  publicKey String   @db.Text
+  createdAt DateTime @default(now())
+
+  user             User             @relation(fields: [userId], references: [id])
+  serverInstances  ServerInstance[]
+
+  @@index([userId])
+}
+
+enum ServerStatus {
+  CREATING
+  ACTIVE
+  STOPPING
+  STOPPED
+  RESTARTING
+  DELETING
+  DELETED
+  ERROR
+}
+
+enum LockedBy {
+  CREATING
+  STOPPING
+  RESTARTING
+  DELETING
+  BACKING_UP
+  RESTORING
+}
+
+enum BillingModel {
+  MONTHLY
+  HOURLY
+  ANNUAL
+}
+
+enum OsType {
+  LINUX
+}
+
+model ServerPlan {
+  id             String  @id @default(uuid())
+  name           String  @db.VarChar(64)
+  slug           String  @unique @db.VarChar(32)
+  vcpu           Int
+  ramMB          Int
+  diskGB         Int
+  bandwidthMbps  Int
+  priceMonthly   Decimal @db.Decimal(10, 2)
+  priceHourly    Decimal @db.Decimal(10, 2)
+  maxServers     Int?
+  isActive       Boolean @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  serverInstances ServerInstance[]
+  planRegions     PlanRegion[]
+}
+
+model ImageTemplate {
+  id          String  @id @default(uuid())
+  name        String  @db.VarChar(128)
+  slug        String  @unique @db.VarChar(64)
+  osType      OsType
+  version     String  @db.VarChar(32)
+  dockerImage String  @db.VarChar(255)
+  diskSizeGB  Int
+  defaultUser String  @db.VarChar(32)
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  serverInstances ServerInstance[]
+  imageRegions    ImageRegion[]
+}
+
+model Region {
+  id        String   @id @default(uuid())
+  name      String   @db.VarChar(64)
+  slug      String   @unique @db.VarChar(16)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  nodes             Node[]
+  serverInstances   ServerInstance[]
+  planRegions       PlanRegion[]
+  imageRegions      ImageRegion[]
+  privateNetworks   PrivateNetwork[]
+  floatingIps       FloatingIp[]
+  blockVolumes      BlockVolume[]
+  taxRates          TaxRate[]
+}
+
+model Node {
+  id                String      @id @default(uuid())
+  name              String      @db.VarChar(64)
+  regionId          String
+  status            NodeStatus  @default(ONLINE)
+  dockerEndpoint    String      @db.VarChar(255)
+  totalVcpu         Int
+  totalRamMB        Int
+  totalDiskGB       Int
+  allocatedVcpu     Int         @default(0)
+  allocatedRamMB    Int         @default(0)
+  allocatedDiskGB   Int         @default(0)
+  lastHeartbeatAt   DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  region           Region         @relation(fields: [regionId], references: [id])
+  serverInstances  ServerInstance[]
+  ipAddresses      IpAddress[]
+  blockVolumes     BlockVolume[]
+
+  @@index([regionId])
+  @@index([status])
+}
+
+enum NodeStatus {
+  ONLINE
+  OFFLINE
+  MAINTENANCE
+}
+
+enum IpType {
+  IPv4
+  IPv6
+}
+
+model IpAddress {
+  id          String    @id @default(uuid())
+  nodeId      String
+  address     String    @db.VarChar(45)
+  type        IpType
+  serverId    String?   @unique
+  allocatedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  node           Node             @relation(fields: [nodeId], references: [id])
+  serverInstance ServerInstance?  @relation(fields: [serverId], references: [id])
+
+  @@unique([nodeId, address])
+  @@index([nodeId])
+}
+
+model ServerInstance {
+  id                String       @id @default(uuid())
+  userId            String
+  serverPlanId      String?
+  imageTemplateId   String?
+  snapshotId        String?
+  nodeId            String
+  regionId          String
+  sshKeyId          String?
+  hostname          String       @db.VarChar(64)
+  status            ServerStatus @default(CREATING)
+  lockedBy          LockedBy?
+  lockedAt          DateTime?
+  ipAddress         String?      @db.VarChar(45)
+  dockerContainerId String?      @db.VarChar(64)
+  vcpu              Int
+  ramMB             Int
+  diskGB            Int          @default(5)
+  billingModel      BillingModel @default(MONTHLY)
+  rootPassword      String?      @db.VarChar(255)
+  cloudInitScript   String?      @db.Text
+  nextBillingAt     DateTime?
+  gracePeriodEndsAt DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  deletedAt         DateTime?
+
+  user           User           @relation(fields: [userId], references: [id])
+  serverPlan     ServerPlan?    @relation(fields: [serverPlanId], references: [id])
+  imageTemplate  ImageTemplate? @relation(fields: [imageTemplateId], references: [id])
+  snapshot       Snapshot?      @relation("SnapshotServers", fields: [snapshotId], references: [id])
+  node           Node           @relation(fields: [nodeId], references: [id])
+  region         Region         @relation(fields: [regionId], references: [id])
+  sshKey         SSHKey?        @relation(fields: [sshKeyId], references: [id])
+  ipAddressRecord IpAddress?
+  backups         Backup[]
+  backupSchedule  BackupSchedule?
+  firewallRules   FirewallRule[]
+  dnsRecords      DnsRecord[]
+  serverTags      ServerTag[]
+  serverPrivateNetwork ServerPrivateNetwork?
+  floatingIp      FloatingIp?
+  blockVolumes    BlockVolume[]
+  bandwidthUsage  BandwidthUsage[]
+  abuseReports    AbuseReport[]
+  sourceOfSnapshots Snapshot[]   @relation("SnapshotSource")
+
+  @@unique([userId, hostname, deletedAt])
+  @@index([userId])
+  @@index([nodeId])
+  @@index([regionId])
+  @@index([status])
+}
+
+model PlanRegion {
+  planId   String
+  regionId String
+
+  plan   ServerPlan @relation(fields: [planId], references: [id])
+  region Region     @relation(fields: [regionId], references: [id])
+
+  @@id([planId, regionId])
+}
+
+model ImageRegion {
+  imageId  String
+  regionId String
+
+  image  ImageTemplate @relation(fields: [imageId], references: [id])
+  region Region        @relation(fields: [regionId], references: [id])
+
+  @@id([imageId, regionId])
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentType {
+  TOP_UP
+  CHARGE
+  REFUND
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  userId          String
+  stripePaymentId String        @unique @db.VarChar(64)
+  amount          Decimal       @db.Decimal(10, 2)
+  currency        String        @default("USD") @db.VarChar(3)
+  status          PaymentStatus
+  type            PaymentType
+  voucherId       String?
+  createdAt       DateTime      @default(now())
+
+  user           User           @relation(fields: [userId], references: [id])
+  voucher        Voucher?       @relation(fields: [voucherId], references: [id])
+  voucherUsages  VoucherUsage[]
+  invoices       Invoice[]
+  referralPayouts ReferralPayout[]
+
+  @@index([userId])
+}
+
+model PaymentMethod {
+  id                     String   @id @default(uuid())
+  userId                 String
+  stripePaymentMethodId  String   @unique @db.VarChar(64)
+  brand                  String   @db.VarChar(32)
+  last4                  String   @db.VarChar(4)
+  expMonth               Int
+  expYear                Int
+  isDefault              Boolean  @default(false)
+  createdAt              DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+enum InvoiceStatus {
+  PAID
+  VOID
+  REFUNDED
+}
+
+model Invoice {
+  id             String        @id @default(uuid())
+  userId         String
+  invoiceNumber  String        @unique @db.VarChar(32)
+  paymentId      String
+  subtotal       Decimal       @db.Decimal(10, 2)
+  taxAmount      Decimal       @default(0) @db.Decimal(10, 2)
+  discountAmount Decimal       @default(0) @db.Decimal(10, 2)
+  total          Decimal       @db.Decimal(10, 2)
+  currency       String        @default("USD") @db.VarChar(3)
+  status         InvoiceStatus
+  pdfUrl         String?       @db.VarChar(512)
+  createdAt      DateTime      @default(now())
+
+  user     User              @relation(fields: [userId], references: [id])
+  payment  Payment           @relation(fields: [paymentId], references: [id])
+  lineItems InvoiceLineItem[]
+
+  @@index([userId])
+}
+
+model InvoiceLineItem {
+  id          String  @id @default(uuid())
+  invoiceId   String
+  description String  @db.VarChar(255)
+  quantity    Int     @default(1)
+  unitPrice   Decimal @db.Decimal(10, 2)
+  total       Decimal @db.Decimal(10, 2)
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+model Voucher {
+  id              String       @id @default(uuid())
+  code            String       @unique @db.VarChar(32)
+  description     String       @db.VarChar(255)
+  discountType    DiscountType
+  discountValue   Decimal      @db.Decimal(10, 2)
+  maxUses         Int?
+  currentUses     Int          @default(0)
+  maxUsesPerUser  Int          @default(1)
+  minSpend        Decimal?     @db.Decimal(10, 2)
+  validFrom       DateTime?
+  validUntil      DateTime?
+  isActive        Boolean      @default(true)
+  createdByUserId String
+  createdAt       DateTime     @default(now())
+
+  createdBy    User           @relation(fields: [createdByUserId], references: [id])
+  usages       VoucherUsage[]
+  payments     Payment[]
+}
+
+model VoucherUsage {
+  id             String   @id @default(uuid())
+  voucherId      String
+  userId         String
+  paymentId      String?
+  discountAmount Decimal  @db.Decimal(10, 2)
+  createdAt      DateTime @default(now())
+
+  voucher Voucher @relation(fields: [voucherId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+  payment Payment? @relation(fields: [paymentId], references: [id])
+
+  @@unique([voucherId, userId])
+  @@index([voucherId])
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_ON_CUSTOMER
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum TicketCategory {
+  GENERAL
+  BILLING
+  TECHNICAL
+  ABUSE
+}
+
+model Ticket {
+  id             String         @id @default(uuid())
+  userId         String
+  assignedUserId String?
+  subject        String         @db.VarChar(255)
+  status         TicketStatus   @default(OPEN)
+  priority       TicketPriority @default(NORMAL)
+  category       TicketCategory
+  resolvedAt     DateTime?
+  closedAt       DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  customer User           @relation("TicketCustomer", fields: [userId], references: [id])
+  assignee User?          @relation("TicketAssignee", fields: [assignedUserId], references: [id])
+  messages TicketMessage[]
+
+  @@index([userId])
+  @@index([assignedUserId])
+  @@index([status])
+}
+
+model TicketMessage {
+  id         String   @id @default(uuid())
+  ticketId   String
+  userId     String
+  body       String   @db.Text
+  isInternal Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id])
+  author User   @relation(fields: [userId], references: [id])
+
+  @@index([ticketId])
+}
+
+enum FirewallProtocol {
+  TCP
+  UDP
+  ICMP
+  ALL
+}
+
+enum FirewallAction {
+  ALLOW
+  DENY
+}
+
+model FirewallRule {
+  id          String           @id @default(uuid())
+  serverId    String
+  protocol    FirewallProtocol
+  portRange   String           @db.VarChar(16)
+  sourceCidr  String           @db.VarChar(45)
+  action      FirewallAction
+  priority    Int
+  description String?          @db.VarChar(128)
+  createdAt   DateTime         @default(now())
+
+  server ServerInstance @relation(fields: [serverId], references: [id])
+
+  @@index([serverId])
+}
+
+enum DnsRecordType {
+  A
+  AAAA
+  CNAME
+  MX
+  TXT
+  PTR
+}
+
+model DnsRecord {
+  id        String        @id @default(uuid())
+  serverId  String
+  type      DnsRecordType
+  name      String        @db.VarChar(255)
+  value     String        @db.VarChar(512)
+  ttl       Int           @default(3600)
+  priority  Int?
+  createdAt DateTime      @default(now())
+
+  server ServerInstance @relation(fields: [serverId], references: [id])
+
+  @@unique([serverId, type, name])
+  @@index([serverId])
+}
+
+enum BackupType {
+  MANUAL
+  AUTOMATED
+}
+
+enum BackupStatus {
+  CREATING
+  AVAILABLE
+  FAILED
+  EXPIRED
+}
+
+model Backup {
+  id          String       @id @default(uuid())
+  serverId    String
+  label       String       @db.VarChar(64)
+  type        BackupType
+  sizeMB      Int
+  status      BackupStatus
+  storagePath String       @db.VarChar(512)
+  expiresAt   DateTime?
+  createdAt   DateTime     @default(now())
+
+  server ServerInstance @relation(fields: [serverId], references: [id])
+
+  @@index([serverId])
+}
+
+model BackupSchedule {
+  id             String   @id @default(uuid())
+  serverId       String   @unique
+  enabled        Boolean  @default(false)
+  intervalHours  Int      @default(24)
+  retainDaily    Int      @default(7)
+  retainWeekly   Int      @default(4)
+  retainMonthly  Int      @default(3)
+  nextRunAt      DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  server ServerInstance @relation(fields: [serverId], references: [id])
+}
+
+enum BlogPostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model BlogCategory {
+  id          String    @id @default(uuid())
+  name        String    @db.VarChar(64)
+  slug        String    @unique @db.VarChar(64)
+  description String?   @db.VarChar(255)
+  createdAt   DateTime  @default(now())
+
+  posts BlogPost[]
+}
+
+model BlogPost {
+  id            String         @id @default(uuid())
+  categoryId    String
+  authorId      String
+  title         String         @db.VarChar(255)
+  slug          String         @unique @db.VarChar(255)
+  excerpt       String?        @db.VarChar(500)
+  body          String         @db.Text
+  coverImageUrl String?        @db.VarChar(512)
+  status        BlogPostStatus @default(DRAFT)
+  publishedAt   DateTime?
+  tags          Json?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  category BlogCategory @relation(fields: [categoryId], references: [id])
+  author   User         @relation(fields: [authorId], references: [id])
+
+  @@index([categoryId])
+  @@index([authorId])
+  @@index([status])
+}
+
+enum NotificationType {
+  SERVER_CREATED
+  SERVER_DELETED
+  SERVER_STARTED
+  SERVER_STOPPED
+  PAYMENT_SUCCEEDED
+  PAYMENT_FAILED
+  TICKET_UPDATED
+  TICKET_CREATED
+  BACKUP_COMPLETED
+  BACKUP_FAILED
+  BALANCE_LOW
+  GRACE_PERIOD_WARNING
+  SERVER_SUSPENDED
+  BANDWIDTH_WARNING
+  BANDWIDTH_EXCEEDED
+  REFERRAL_CREDITED
+  ANNOUNCEMENT
+  GDPR_EXPORT_READY
+  ACCOUNT_DELETED
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType
+  title     String           @db.VarChar(128)
+  body      String           @db.VarChar(512)
+  link      String?          @db.VarChar(512)
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, isRead])
+}
+
+model NotificationPreference {
+  id                    String  @id @default(uuid())
+  userId                String  @unique
+  emailServerCreated    Boolean @default(true)
+  emailServerDeleted    Boolean @default(true)
+  emailPaymentFailure   Boolean @default(true)
+  emailTicketUpdates    Boolean @default(true)
+  emailMarketing        Boolean @default(false)
+  pushServerCreated     Boolean @default(true)
+  pushTicketUpdates     Boolean @default(true)
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model PrivateNetwork {
+  id        String   @id @default(uuid())
+  userId    String
+  regionId  String
+  name      String   @db.VarChar(64)
+  cidr      String   @db.VarChar(18)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  user          User                    @relation(fields: [userId], references: [id])
+  region        Region                  @relation(fields: [regionId], references: [id])
+  serverMembers ServerPrivateNetwork[]
+
+  @@index([userId])
+  @@index([regionId])
+}
+
+model ServerPrivateNetwork {
+  id         String   @id @default(uuid())
+  serverId   String
+  networkId  String
+  privateIp  String   @db.VarChar(45)
+  attachedAt DateTime @default(now())
+
+  server  ServerInstance  @relation(fields: [serverId], references: [id])
+  network PrivateNetwork  @relation(fields: [networkId], references: [id])
+
+  @@unique([serverId])
+  @@index([networkId])
+}
+
+model FloatingIp {
+  id          String    @id @default(uuid())
+  userId      String
+  regionId    String
+  ipAddress   String    @db.VarChar(45)
+  serverId    String?   @unique
+  assignedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  user   User            @relation(fields: [userId], references: [id])
+  region Region          @relation(fields: [regionId], references: [id])
+  server ServerInstance? @relation(fields: [serverId], references: [id])
+
+  @@index([userId])
+  @@index([regionId])
+}
+
+enum BlockVolumeStatus {
+  CREATING
+  AVAILABLE
+  ATTACHED
+  DETACHING
+  DELETING
+  ERROR
+}
+
+model BlockVolume {
+  id              String            @id @default(uuid())
+  userId          String
+  regionId        String
+  nodeId          String?
+  name            String            @db.VarChar(64)
+  sizeGB          Int
+  status          BlockVolumeStatus @default(CREATING)
+  serverId        String?
+  devicePath      String?           @db.VarChar(16)
+  attachedAt      DateTime?
+  dockerVolumeId  String?           @db.VarChar(64)
+  createdAt       DateTime          @default(now())
+  deletedAt       DateTime?
+
+  user   User             @relation(fields: [userId], references: [id])
+  region Region           @relation(fields: [regionId], references: [id])
+  node   Node?            @relation(fields: [nodeId], references: [id])
+  server ServerInstance?  @relation(fields: [serverId], references: [id])
+
+  @@index([userId])
+  @@index([regionId])
+  @@index([status])
+}
+
+model WebhookEndpoint {
+  id              String    @id @default(uuid())
+  userId          String
+  url             String    @db.VarChar(512)
+  secret          String    @db.VarChar(64)
+  events          Json
+  isActive        Boolean   @default(true)
+  lastDeliveryAt  DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user      User              @relation(fields: [userId], references: [id])
+  deliveries WebhookDelivery[]
+
+  @@index([userId])
+}
+
+enum WebhookDeliveryStatus {
+  PENDING
+  DELIVERED
+  FAILED
+}
+
+model WebhookDelivery {
+  id            String                @id @default(uuid())
+  endpointId    String
+  event         String                @db.VarChar(64)
+  payload       Json
+  status        WebhookDeliveryStatus
+  responseCode  Int?
+  attemptCount  Int                   @default(1)
+  nextRetryAt   DateTime?
+  createdAt     DateTime              @default(now())
+
+  endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id])
+
+  @@index([endpointId])
+}
+
+model BandwidthUsage {
+  id        String  @id @default(uuid())
+  serverId  String
+  date      DateTime @db.Date
+  bytesIn   BigInt  @default(0)
+  bytesOut  BigInt  @default(0)
+
+  server ServerInstance @relation(fields: [serverId], references: [id])
+
+  @@unique([serverId, date])
+  @@index([serverId])
+}
+
+model Referral {
+  id                String         @id @default(uuid())
+  referrerId        String
+  refereeId         String
+  refereeIpAddress  String         @db.VarChar(45)
+  status            ReferralStatus @default(PENDING)
+  referrerCredit    Decimal        @db.Decimal(10, 2)
+  refereeCredit     Decimal        @db.Decimal(10, 2)
+  createdAt         DateTime       @default(now())
+
+  referrer User @relation("ReferralReferrer", fields: [referrerId], references: [id])
+  referee  User @relation("ReferralReferee", fields: [refereeId], references: [id])
+
+  @@index([referrerId])
+  @@index([refereeId])
+}
+
+enum ReferralStatus {
+  PENDING
+  CREDITED
+  PAID_OUT
+}
+
+enum ReferralPayoutStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+model ReferralPayout {
+  id        String               @id @default(uuid())
+  userId    String
+  amount    Decimal              @db.Decimal(10, 2)
+  paymentId String?
+  status    ReferralPayoutStatus @default(PENDING)
+  createdAt DateTime             @default(now())
+
+  user    User     @relation(fields: [userId], references: [id])
+  payment Payment? @relation(fields: [paymentId], references: [id])
+
+  @@index([userId])
+}
+
+enum AuditAction {
+  SERVER_CREATED
+  SERVER_STARTED
+  SERVER_STOPPED
+  SERVER_RESTARTED
+  SERVER_DELETED
+  USER_CREATED
+  USER_UPDATED
+  USER_DELETED
+  USER_LOGIN
+  USER_LOGOUT
+  PASSWORD_CHANGED
+  TWO_FACTOR_ENABLED
+  TWO_FACTOR_DISABLED
+  API_KEY_CREATED
+  API_KEY_REVOKED
+  PLAN_CREATED
+  PLAN_UPDATED
+  PLAN_DEACTIVATED
+  IMAGE_CREATED
+  IMAGE_UPDATED
+  IMAGE_DEACTIVATED
+  NODE_CREATED
+  NODE_UPDATED
+  NODE_DELETED
+  REGION_CREATED
+  REGION_UPDATED
+  REGION_DEACTIVATED
+  PAYMENT_CREATED
+  PAYMENT_COMPLETED
+  PAYMENT_FAILED
+  BALANCE_DEDUCTED
+  TICKET_CREATED
+  TICKET_UPDATED
+  TICKET_CLOSED
+  BACKUP_CREATED
+  BACKUP_DELETED
+  BACKUP_RESTORED
+  FIREWALL_RULE_CREATED
+  FIREWALL_RULE_UPDATED
+  FIREWALL_RULE_DELETED
+  DNS_RECORD_CREATED
+  DNS_RECORD_UPDATED
+  DNS_RECORD_DELETED
+  VOUCHER_CREATED
+  VOUCHER_DEACTIVATED
+  VOUCHER_APPLIED
+  BLOG_POST_CREATED
+  BLOG_POST_UPDATED
+  BLOG_POST_PUBLISHED
+  BLOG_POST_DELETED
+  SETTING_UPDATED
+  TAX_RATE_CREATED
+  TAX_RATE_UPDATED
+  GDPR_EXPORT_REQUESTED
+  GDPR_EXPORT_COMPLETED
+  GDPR_DELETION_REQUESTED
+  GDPR_DELETION_COMPLETED
+  IMPERSONATION_START
+  IMPERSONATION_END
+  FEATURE_FLAG_CREATED
+  FEATURE_FLAG_UPDATED
+  VOLUME_CREATED
+  VOLUME_ATTACHED
+  VOLUME_DETACHED
+  VOLUME_RESIZED
+  VOLUME_DELETED
+  FLOATING_IP_ALLOCATED
+  FLOATING_IP_ASSIGNED
+  FLOATING_IP_RELEASED
+  PRIVATE_NETWORK_CREATED
+  PRIVATE_NETWORK_DELETED
+  ABUSE_REPORT_SUBMITTED
+  ABUSE_REPORT_RESOLVED
+  REFERRAL_CREDITED
+  TERMS_ACCEPTED
+  ANNOUNCEMENT_CREATED
+  ANNOUNCEMENT_DELETED
+  WEBHOOK_CREATED
+  WEBHOOK_DELETED
+  CLOUD_INIT_EXECUTED
+  LOCK_STALE
+}
+
+enum AuditResult {
+  SUCCESS
+  FAILURE
+}
+
+model AuditLog {
+  id         String      @id @default(uuid())
+  userId     String?
+  action     AuditAction
+  targetType String      @db.VarChar(32)
+  targetId   String
+  result     AuditResult
+  metadata   Json?
+  ipAddress  String      @db.VarChar(45)
+  createdAt  DateTime    @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([action])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+}
+
+model VpsTag {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String   @db.VarChar(32)
+  color     String?  @db.VarChar(7)
+  createdAt DateTime @default(now())
+
+  user       User        @relation(fields: [userId], references: [id])
+  serverTags ServerTag[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model ServerTag {
+  serverId String
+  tagId    String
+
+  server ServerInstance @relation(fields: [serverId], references: [id])
+  tag    VpsTag         @relation(fields: [tagId], references: [id])
+
+  @@id([serverId, tagId])
+}
+
+model SystemSetting {
+  id              String            @id @default(uuid())
+  key             String            @unique @db.VarChar(64)
+  value           String            @db.Text
+  type            SystemSettingType
+  label           String            @db.VarChar(128)
+  description     String?           @db.VarChar(255)
+  isImmutable     Boolean           @default(false)
+  updatedByUserId String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  updatedBy User? @relation(fields: [updatedByUserId], references: [id])
+}
+
+enum SystemSettingType {
+  STRING
+  NUMBER
+  BOOLEAN
+  JSON
+}
+
+model EmailTemplate {
+  id        String   @id @default(uuid())
+  code      String   @unique @db.VarChar(64)
+  name      String   @db.VarChar(128)
+  subject   String   @db.VarChar(255)
+  htmlBody  String   @db.Text
+  textBody  String?  @db.Text
+  variables Json?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum AnnouncementSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+model Announcement {
+  id              String              @id @default(uuid())
+  title           String              @db.VarChar(128)
+  body            String              @db.Text
+  severity        AnnouncementSeverity @default(INFO)
+  isActive        Boolean             @default(true)
+  startsAt        DateTime?
+  endsAt          DateTime?
+  createdByUserId String
+  createdAt       DateTime            @default(now())
+
+  createdBy User @relation(fields: [createdByUserId], references: [id])
+}
+
+model TaxRate {
+  id        String   @id @default(uuid())
+  regionId  String
+  name      String   @db.VarChar(64)
+  rate      Decimal  @db.Decimal(5, 2)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  region Region @relation(fields: [regionId], references: [id])
+
+  @@unique([regionId])
+}
+
+model FeatureFlag {
+  id          String    @id @default(uuid())
+  key         String    @unique @db.VarChar(64)
+  description String    @db.VarChar(255)
+  enabled     Boolean   @default(false)
+  rules       Json?
+  lastEvaluatedAt DateTime?
+  createdByUserId  String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  createdBy User @relation(fields: [createdByUserId], references: [id])
+}
+
+model ImpersonationSession {
+  id            String    @id @default(uuid())
+  adminUserId   String
+  targetUserId  String
+  startedAt     DateTime  @default(now())
+  endedAt       DateTime?
+  ipAddress     String    @db.VarChar(45)
+
+  admin  User @relation("ImpersonationAdmin", fields: [adminUserId], references: [id])
+  target User @relation("ImpersonationTarget", fields: [targetUserId], references: [id])
+
+  @@index([adminUserId])
+}
+
+enum TermsType {
+  TOS
+  PRIVACY_POLICY
+}
+
+model TermsAcceptance {
+  id        String    @id @default(uuid())
+  userId    String
+  termsType TermsType
+  version   String    @db.VarChar(32)
+  acceptedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model CookieConsent {
+  id          String   @id @default(uuid())
+  userId      String?
+  sessionId   String?  @db.VarChar(64)
+  preferences Json
+  createdAt   DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+}
+
+enum GdprRequestType {
+  EXPORT
+  DELETE
+}
+
+enum GdprRequestStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model GdprRequest {
+  id          String            @id @default(uuid())
+  userId      String
+  type        GdprRequestType
+  status      GdprRequestStatus @default(PENDING)
+  downloadUrl String?           @db.VarChar(512)
+  completedAt DateTime?
+  expiresAt   DateTime
+  createdAt   DateTime          @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+enum AbuseReportType {
+  DMCA
+  SPAM
+  MALWARE
+  CRYPTO_MINING
+  PHISHING
+  OTHER
+}
+
+enum AbuseReportStatus {
+  PENDING_REVIEW
+  INVESTIGATING
+  VALIDATED
+  DISMISSED
+  SUSPENDED
+  RESOLVED
+}
+
+model AbuseReport {
+  id                String            @id @default(uuid())
+  reporterUserId    String?
+  serverId          String?
+  type              AbuseReportType
+  description       String            @db.Text
+  evidence          String?           @db.Text
+  status            AbuseReportStatus @default(PENDING_REVIEW)
+  resolution        String?           @db.Text
+  reviewedByUserId  String?
+  createdAt         DateTime          @default(now())
+  resolvedAt        DateTime?
+
+  reporter    User?            @relation("AbuseReporter", fields: [reporterUserId], references: [id])
+  server      ServerInstance?  @relation(fields: [serverId], references: [id])
+  reviewedBy  User?            @relation("AbuseReviewer", fields: [reviewedByUserId], references: [id])
+
+  @@index([status])
+  @@index([serverId])
+}
+
+model Snapshot {
+  id             String   @id @default(uuid())
+  userId         String
+  sourceServerId String?
+  label          String   @db.VarChar(64)
+  sizeGB         Int
+  createdAt      DateTime @default(now())
+
+  user         User             @relation(fields: [userId], references: [id])
+  sourceServer ServerInstance?  @relation("SnapshotSource", fields: [sourceServerId], references: [id])
+  servers      ServerInstance[] @relation("SnapshotServers")
+
+  @@index([userId])
+}
