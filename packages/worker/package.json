@@ -1,0 +1,24 @@
+{
+  "name": "@astral/worker",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@astral/shared": "workspace:*",
+    "@prisma/client": "^5.0.0",
+    "bullmq": "^5.0.0",
+    "dockerode": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/dockerode": "^3.3.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.5.0"
+  }
+}
