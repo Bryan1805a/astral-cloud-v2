@@ -9,7 +9,7 @@ import {
   createSession,
   getClientIp,
 } from "@/lib/auth";
-import { apiError, apiSuccess } from "@/lib/errors";
+import { apiError } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
 

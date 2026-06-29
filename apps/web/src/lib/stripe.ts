@@ -6,7 +6,8 @@ const isPlaceholder =
 export const stripe = isPlaceholder
   ? null
   : new Stripe(process.env.STRIPE_SECRET_KEY!, {
-      apiVersion: "2023-10-16" as any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    apiVersion: "2023-10-16" as any,
     });
 
 export const IS_DEV_MODE = isPlaceholder;

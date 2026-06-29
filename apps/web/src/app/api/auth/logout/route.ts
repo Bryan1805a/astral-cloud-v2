@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthToken, apiError, apiSuccess } from "@/lib/errors";
+import { apiError, getAuthToken } from "@/lib/errors";
 import { verifyAccessToken } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
