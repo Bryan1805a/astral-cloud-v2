@@ -75,12 +75,15 @@ export default function ServersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [tagFilter, setTagFilter] = useState("");
+  const [allTags, setAllTags] = useState<Tag[]>([]);
   const [actingServer, setActingServer] = useState<string | null>(null);
 
   const fetchServers = useCallback(async () => {
     try {
       const params = new URLSearchParams();
       if (statusFilter) params.set("status", statusFilter);
+      if (tagFilter) params.set("tag", tagFilter);
       const res = await fetch(`/api/servers?${params.toString()}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
       });
@@ -92,11 +95,13 @@ export default function ServersPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, tagFilter]);
+
+  useEffect(() => { fetchServers(); }, [fetchServers]);
 
   useEffect(() => {
-    fetchServers();
-  }, [fetchServers]);
+    api.get<Tag[]>("/tags").then(setAllTags).catch(() => {});
+  }, []);
 
   async function handleAction(serverId: string, action: "start" | "stop" | "restart") {
     setActingServer(serverId);
@@ -157,7 +162,7 @@ export default function ServersPage() {
         </div>
       )}
 
-      <div className="mt-6 flex gap-2">
+      <div className="mt-6 flex items-center gap-2">
         {["", "ACTIVE", "STOPPED", "CREATING", "ERROR"].map((s) => (
           <button
             key={s}
@@ -171,6 +176,19 @@ export default function ServersPage() {
             {s || "All"}
           </button>
         ))}
+        {allTags.length > 0 && (
+          <div className="relative ml-2">
+            <select value={tagFilter} onChange={(e) => setTagFilter(e.target.value)}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-medium appearance-none cursor-pointer ${
+                tagFilter ? "border-white bg-white text-gray-900" : "border-gray-700 text-gray-400 hover:border-gray-600"
+              }`}>
+              <option value="">All Tags</option>
+              {allTags.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {loading ? (

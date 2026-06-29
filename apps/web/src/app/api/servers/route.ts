@@ -27,10 +27,14 @@ export async function GET(request: NextRequest) {
   const page = parseInt(searchParams.get("page") || "1");
   const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 100);
   const status = searchParams.get("status") as ServerStatus | null;
+  const tag = searchParams.get("tag");
   const skip = (page - 1) * limit;
 
   const where: Record<string, unknown> = { userId: payload.sub, deletedAt: null };
   if (status) where.status = status;
+  if (tag) {
+    where.serverTags = { some: { tagId: tag } };
+  }
 
   const [servers, total] = await Promise.all([
     db.serverInstance.findMany({

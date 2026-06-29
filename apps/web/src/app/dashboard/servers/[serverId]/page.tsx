@@ -238,6 +238,10 @@ function OverviewTab({ server }: { server: Server }) {
           <Row label="Billing" value={server.billingModel} />
           {server.nextBillingAt && <Row label="Next Billing" value={new Date(server.nextBillingAt).toLocaleDateString()} />}
         </dl>
+        <div className="mt-4 border-t border-gray-800 pt-4">
+          <h3 className="text-sm font-semibold text-gray-300 mb-3">Tags</h3>
+          <ServerTags serverId={server.id} currentTags={server.tags} />
+        </div>
       </div>
 
       <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5">
@@ -290,6 +294,81 @@ function Row({ label, value }: { label: string; value: string }) {
     <div className="flex justify-between text-sm">
       <dt className="text-gray-400">{label}</dt>
       <dd className="text-gray-200 truncate max-w-[60%] text-right">{value}</dd>
+    </div>
+  );
+}
+
+interface TagItem { id: string; name: string; color: string | null; }
+
+function ServerTags({ serverId, currentTags }: { serverId: string; currentTags: TagItem[] }) {
+  const [tags, setTags] = useState<TagItem[]>(currentTags);
+  const [allTags, setAllTags] = useState<TagItem[]>([]);
+  const [showPicker, setShowPicker] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    api.get<TagItem[]>("/tags").then(setAllTags).catch(() => {});
+  }, []);
+
+  async function removeTag(tagId: string) {
+    const newTagIds = tags.filter((t) => t.id !== tagId).map((t) => t.id);
+    setLoading(true);
+    try {
+      await api.put(`/servers/${serverId}/tags`, { tagIds: newTagIds });
+      setTags(tags.filter((t) => t.id !== tagId));
+    } catch { /* noop */ }
+    finally { setLoading(false); }
+  }
+
+  async function addTag(tag: TagItem) {
+    if (tags.some((t) => t.id === tag.id)) return;
+    const newTagIds = [...tags.map((t) => t.id), tag.id];
+    setLoading(true);
+    try {
+      await api.put(`/servers/${serverId}/tags`, { tagIds: newTagIds });
+      setTags([...tags, tag]);
+      setShowPicker(false);
+    } catch { /* noop */ }
+    finally { setLoading(false); }
+  }
+
+  const availableTags = allTags.filter((t) => !tags.some((ct) => ct.id === t.id));
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-2">
+        {tags.map((tag) => (
+          <span key={tag.id} className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium"
+            style={{ borderColor: tag.color ? `${tag.color}60` : "#4b556380", backgroundColor: tag.color ? `${tag.color}20` : "#4b556320", color: tag.color || "#d1d5db" }}>
+            {tag.name}
+            <button onClick={() => removeTag(tag.id)} disabled={loading}
+              className="ml-0.5 hover:opacity-70">&times;</button>
+          </span>
+        ))}
+        <div className="relative">
+          <button onClick={() => setShowPicker(!showPicker)} disabled={loading}
+            className="inline-flex items-center rounded-full border border-dashed border-gray-600 px-2.5 py-1 text-xs text-gray-400 hover:border-gray-500 hover:text-gray-300">
+            + Tag
+          </button>
+          {showPicker && availableTags.length > 0 && (
+            <div className="absolute left-0 top-full z-10 mt-1 w-48 rounded-lg border border-gray-700 bg-gray-900 py-1 shadow-lg">
+              {availableTags.map((tag) => (
+                <button key={tag.id} onClick={() => addTag(tag)}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-800 transition-colors">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: tag.color || "#6b7280" }} />
+                  {tag.name}
+                </button>
+              ))}
+            </div>
+          )}
+          {showPicker && availableTags.length === 0 && (
+            <div className="absolute left-0 top-full z-10 mt-1 w-48 rounded-lg border border-gray-700 bg-gray-900 px-3 py-3 shadow-lg">
+              <p className="text-xs text-gray-500">No more tags available.</p>
+              <a href="/dashboard/tags" className="mt-1 block text-xs text-blue-400 hover:underline">Create a tag</a>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
