@@ -9,8 +9,17 @@ export async function handleStartJob(runtime: ContainerRuntime, serverId: string
     include: { node: true },
   });
 
-  if (!server || !server.dockerContainerId) {
-    console.error(`[start] Server ${serverId} not found or has no container`);
+  if (!server) {
+    console.error(`[start] Server ${serverId} not found`);
+    return;
+  }
+
+  if (!server.dockerContainerId) {
+    console.error(`[start] Server ${serverId} has no container ID - releasing lock`);
+    await db.serverInstance.update({
+      where: { id: serverId },
+      data: { status: "ERROR", lockedBy: null, lockedAt: null },
+    });
     return;
   }
 
@@ -36,8 +45,17 @@ export async function handleStopJob(runtime: ContainerRuntime, serverId: string)
     include: { node: true },
   });
 
-  if (!server || !server.dockerContainerId) {
-    console.error(`[stop] Server ${serverId} not found or has no container`);
+  if (!server) {
+    console.error(`[stop] Server ${serverId} not found`);
+    return;
+  }
+
+  if (!server.dockerContainerId) {
+    console.error(`[stop] Server ${serverId} has no container ID - releasing lock`);
+    await db.serverInstance.update({
+      where: { id: serverId },
+      data: { status: "ERROR", lockedBy: null, lockedAt: null },
+    });
     return;
   }
 
@@ -72,8 +90,17 @@ export async function handleRestartJob(runtime: ContainerRuntime, serverId: stri
     include: { node: true },
   });
 
-  if (!server || !server.dockerContainerId) {
-    console.error(`[restart] Server ${serverId} not found or has no container`);
+  if (!server) {
+    console.error(`[restart] Server ${serverId} not found`);
+    return;
+  }
+
+  if (!server.dockerContainerId) {
+    console.error(`[restart] Server ${serverId} has no container ID - releasing lock`);
+    await db.serverInstance.update({
+      where: { id: serverId },
+      data: { status: "ERROR", lockedBy: null, lockedAt: null },
+    });
     return;
   }
 

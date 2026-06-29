@@ -22,13 +22,11 @@ export async function POST(
   const ip = request.headers.get("x-forwarded-for") || "127.0.0.1";
 
   try {
-    const server = await restartServer(params.serverId, payload.sub, ip);
+    await restartServer(params.serverId, payload.sub, ip);
 
     return apiSuccess({
-      id: server.id,
-      hostname: server.hostname,
-      status: "ACTIVE",
-      updatedAt: new Date().toISOString(),
+      id: params.serverId,
+      status: "RESTARTING",
     });
   } catch (error) {
     if (error instanceof InvalidStateError) {

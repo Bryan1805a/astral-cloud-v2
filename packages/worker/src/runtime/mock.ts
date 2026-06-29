@@ -26,7 +26,7 @@ export class MockRuntime implements ContainerRuntime {
   }
 
   async getServerStatus(_nodeEndpoint: string, containerId: string): Promise<ServerStatus> {
-    return { running: true, ipAddress: "10.0.0.1", state: "running" };
+    return { running: false, ipAddress: undefined, state: "stopped" };
   }
 
   async getNodeResources(_nodeEndpoint: string): Promise<NodeResources> {

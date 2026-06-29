@@ -18,6 +18,7 @@ export interface CreateServerResult {
 
 export interface ServerStatus {
   running: boolean;
+  containerId?: string;
   ipAddress?: string;
   state?: string;
 }

@@ -30,15 +30,16 @@ export async function handleProvisionJob(
 
   try {
     const existing = await runtime.getServerStatus(node.dockerEndpoint, `astral-${serverId.slice(0, 10)}`);
-    if (existing.running) {
+    if (existing.running && existing.containerId) {
       console.log(`[provision] Container already exists for ${serverId}, syncing DB`);
       await db.serverInstance.update({
         where: { id: serverId },
         data: {
           status: "ACTIVE",
+          dockerContainerId: existing.containerId,
+          ipAddress: existing.ipAddress || undefined,
           lockedBy: null,
           lockedAt: null,
-          ipAddress: existing.ipAddress || undefined,
         },
       });
       return;
@@ -62,7 +63,9 @@ export async function handleProvisionJob(
     cloudInitScript: server.cloudInitScript || undefined,
   });
 
-  await db.serverInstance.update({
+  console.log(`[provision] Result from runtime: containerId=${result.containerId}, ipAddress=${result.ipAddress}`);
+
+  const updateResult = await db.serverInstance.update({
     where: { id: serverId },
     data: {
       status: "ACTIVE",
@@ -72,6 +75,7 @@ export async function handleProvisionJob(
       lockedAt: null,
     },
   });
+  console.log(`[provision] DB update result: containerId=${updateResult.dockerContainerId}, ipAddress=${updateResult.ipAddress}`);
 
   await db.auditLog.create({
     data: {
