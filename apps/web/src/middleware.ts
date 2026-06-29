@@ -9,12 +9,16 @@ const publicPaths = [
   "/",
   "/login",
   "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/verify-email",
   "/api/auth/register",
   "/api/auth/login",
   "/api/auth/refresh",
   "/api/auth/forgot-password",
   "/api/auth/reset-password",
   "/api/auth/verify-email",
+  "/api/auth/2fa/verify",
   "/api/stripe/webhook",
 ];
 

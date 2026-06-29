@@ -1,7 +1,8 @@
 import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 import { createHash, randomBytes } from "crypto";
-import { authenticator } from "otplib";
+import { generateSecret, generateURI } from "otplib";
+import { verify as verifyOTP } from "otplib";
 import { db } from "./db";
 
 const JWT_SECRET = new TextEncoder().encode(
@@ -127,16 +128,17 @@ export async function verifyApiKey(key: string): Promise<{ userId: string; role:
 }
 
 export function generateTOTPSecret(): string {
-  return authenticator.generateSecret();
+  return generateSecret();
 }
 
 export function generateTOTPUri(secret: string, email: string): string {
-  return authenticator.keyuri(email, "Astral Cloud", secret);
+  return generateURI({ secret, label: email, issuer: "Astral Cloud" });
 }
 
-export function verifyTOTP(secret: string, token: string): boolean {
+export async function verifyTOTP(secret: string, token: string): Promise<boolean> {
   try {
-    return authenticator.verify({ secret, token });
+    const result: unknown = await verifyOTP({ secret, token });
+    return result === true;
   } catch {
     return false;
   }
@@ -151,10 +153,11 @@ export function generateBackupCodes(): string[] {
 export async function createResetToken(userId: string): Promise<string> {
   const token = randomBytes(32).toString("hex");
   const hash = sha256(token);
+  const payload = JSON.stringify({ hash, expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString() });
   await db.systemSetting.upsert({
     where: { key: `reset_${userId}` },
-    update: { value: JSON.stringify({ hash, expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString() }), type: "JSON" },
-    create: { key: `reset_${userId}`, value: JSON.stringify({ hash, expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString() }), type: "JSON" },
+    update: { value: payload },
+    create: { key: `reset_${userId}`, value: payload, label: `Password reset for ${userId}`, type: "JSON" },
   });
   return token;
 }
@@ -162,8 +165,11 @@ export async function createResetToken(userId: string): Promise<string> {
 export async function verifyResetToken(userId: string, token: string): Promise<boolean> {
   const setting = await db.systemSetting.findUnique({ where: { key: `reset_${userId}` } });
   if (!setting) return false;
-  const data = JSON.parse(setting.value as string);
-  if (new Date(data.expiresAt) < new Date()) return false;
+  const data = JSON.parse(setting.value);
+  if (new Date(data.expiresAt) < new Date()) {
+    await db.systemSetting.delete({ where: { id: setting.id } }).catch(() => {});
+    return false;
+  }
   return sha256(token) === data.hash;
 }
 
@@ -174,10 +180,11 @@ export async function consumeResetToken(userId: string): Promise<void> {
 export async function createVerificationToken(userId: string): Promise<string> {
   const token = randomBytes(32).toString("hex");
   const hash = sha256(token);
+  const payload = JSON.stringify({ hash, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() });
   await db.systemSetting.upsert({
     where: { key: `verify_${userId}` },
-    update: { value: JSON.stringify({ hash, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() }), type: "JSON" },
-    create: { key: `verify_${userId}`, value: JSON.stringify({ hash, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() }), type: "JSON" },
+    update: { value: payload },
+    create: { key: `verify_${userId}`, value: payload, label: `Email verify for ${userId}`, type: "JSON" },
   });
   return token;
 }
@@ -185,12 +192,14 @@ export async function createVerificationToken(userId: string): Promise<string> {
 export async function verifyEmailToken(token: string): Promise<string | null> {
   const settings = await db.systemSetting.findMany({ where: { key: { startsWith: "verify_" } } });
   for (const setting of settings) {
-    const data = JSON.parse(setting.value as string);
-    if (new Date(data.expiresAt) < new Date()) continue;
-    if (sha256(token) === data.hash) {
-      await db.systemSetting.delete({ where: { id: setting.id } });
-      return setting.key.replace("verify_", "");
-    }
+    try {
+      const data = JSON.parse(setting.value);
+      if (new Date(data.expiresAt) < new Date()) continue;
+      if (sha256(token) === data.hash) {
+        await db.systemSetting.delete({ where: { id: setting.id } });
+        return setting.key.replace("verify_", "");
+      }
+    } catch { continue; }
   }
   return null;
 }

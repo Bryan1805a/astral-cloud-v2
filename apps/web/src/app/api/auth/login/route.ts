@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
 import { loginSchema } from "@astral/shared";
 import { db } from "@/lib/db";
 import {
@@ -78,16 +79,33 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // TOTP verification would go here
-      return apiError("INVALID_2FA_CODE", "Invalid authentication code.");
+      if (!user.twoFactorAuth.secret) {
+        return apiError("INTERNAL_ERROR", "2FA configuration error.");
+      }
+
+      const { verifyTOTP } = await import("@/lib/auth");
+      const isValid = await verifyTOTP(user.twoFactorAuth.secret, totpCode);
+
+      if (!isValid) {
+        const backupString = JSON.parse((user.twoFactorAuth.backupCodes as string) || "[]");
+        const isValidBackup = backupString.some((hash: string) => bcrypt.compareSync(totpCode, hash));
+
+        if (isValidBackup) {
+          const remainingBackups = backupString.filter((hash: string) => !bcrypt.compareSync(totpCode, hash));
+          await db.twoFactorAuth.update({
+            where: { userId: user.id },
+            data: { backupCodes: JSON.stringify(remainingBackups) },
+          });
+        } else {
+          return apiError("INVALID_2FA_CODE", "Invalid authentication code.");
+        }
+      }
     }
 
     const accessToken = await createAccessToken(user.id, user.role);
     const refreshToken = await createRefreshToken(user.id, user.role);
 
-    const refreshTokenHash = await import("bcryptjs").then((bcrypt) =>
-      bcrypt.hash(refreshToken, 6)
-    );
+    const refreshTokenHash = await bcrypt.hash(refreshToken, 6);
 
     await createSession(user.id, refreshTokenHash, ip, request.headers.get("user-agent") || undefined);
 

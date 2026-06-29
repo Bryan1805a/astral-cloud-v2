@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { registerSchema } from "@astral/shared";
 import { db } from "@/lib/db";
-import { hashPassword } from "@/lib/auth";
+import { hashPassword, createVerificationToken } from "@/lib/auth";
 import { apiError, apiSuccess } from "@/lib/errors";
 import { UserRole, UserStatus } from "@astral/shared";
 
@@ -82,6 +82,9 @@ export async function POST(request: NextRequest) {
         ipAddress: request.headers.get("x-forwarded-for") || "127.0.0.1",
       },
     });
+
+    const verifyToken = await createVerificationToken(user.id);
+    console.log(`[email] Verification link for ${user.email}: /verify-email?token=${verifyToken}`);
 
     return apiSuccess(
       {
