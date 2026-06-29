@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { api } from "@/lib/api";
 
 interface Ticket {
@@ -79,7 +80,9 @@ export default function AdminTicketsPage() {
             <tbody>
               {tickets.map((t) => (
                 <tr key={t.id} className="border-b border-gray-800/50">
-                  <td className="py-2 text-gray-200 max-w-[200px] truncate">{t.subject}</td>
+                  <td className="py-2 text-gray-200 max-w-[200px] truncate">
+                    <Link href={`/dashboard/admin/tickets/${t.id}`} className="hover:text-white hover:underline">{t.subject}</Link>
+                  </td>
                   <td className="py-2 text-gray-400">{t.customer.username}</td>
                   <td className="py-2">
                     <select value={t.status} onChange={(e) => updateTicket(t.id, { status: e.target.value })}

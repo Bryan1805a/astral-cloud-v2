@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import BackupsTab from "./BackupsTab";
 
 interface ServerPlan {
   id: string; name: string; slug: string;
@@ -62,7 +63,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-type Tab = "overview" | "firewall" | "dns";
+type Tab = "overview" | "firewall" | "dns" | "backups";
 
 export default function ServerDetailPage() {
   const params = useParams();
@@ -149,6 +150,7 @@ export default function ServerDetailPage() {
     { key: "overview", label: "Overview" },
     { key: "firewall", label: "Firewall" },
     { key: "dns", label: "DNS" },
+    { key: "backups", label: "Backups" },
   ];
 
   return (
@@ -215,6 +217,7 @@ export default function ServerDetailPage() {
         {activeTab === "overview" && <OverviewTab server={server} />}
         {activeTab === "firewall" && <FirewallTab serverId={serverId} />}
         {activeTab === "dns" && <DnsTab serverId={serverId} />}
+        {activeTab === "backups" && <BackupsTab serverId={serverId} />}
       </div>
     </div>
   );

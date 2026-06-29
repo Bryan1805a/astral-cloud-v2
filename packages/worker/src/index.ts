@@ -8,6 +8,7 @@ import {
   handleRestartJob,
   handleDeleteJob,
 } from "./jobs/lifecycle.job";
+import { handleBackupJob } from "./jobs/backup.server.job";
 
 const REDIS_URL = process.env.REDIS_URL || "redis://redis:6379";
 const CONTAINER_RUNTIME_DRIVER = process.env.CONTAINER_RUNTIME_DRIVER || "mock";
@@ -21,9 +22,9 @@ console.log(`[worker] Starting with runtime: ${CONTAINER_RUNTIME_DRIVER}`);
 const worker = new Worker(
   "server-operations",
   async (job) => {
-    const { type, serverId } = job.data as { type: string; serverId: string };
+  const { type, serverId, backupId } = job.data as { type: string; serverId: string; backupId?: string };
 
-    console.log(`[worker] Processing job ${job.id}: ${type} for server ${serverId}`);
+  console.log(`[worker] Processing job ${job.id}: ${type} for server ${serverId}`);
 
     switch (type) {
       case "provision":
@@ -40,6 +41,10 @@ const worker = new Worker(
         break;
       case "delete":
         await handleDeleteJob(runtime, serverId);
+        break;
+      case "backup":
+        if (backupId) await handleBackupJob(runtime, serverId, backupId);
+        else console.error("[worker] Backup job missing backupId");
         break;
       default:
         console.error(`[worker] Unknown job type: ${type}`);

@@ -12,6 +12,7 @@ export enum JobType {
   STOP = "stop",
   RESTART = "restart",
   DELETE = "delete",
+  BACKUP = "backup",
 }
 
 export interface ProvisionJobData {
@@ -24,4 +25,10 @@ export interface LifecycleJobData {
   serverId: string;
 }
 
-export type ServerJobData = ProvisionJobData | LifecycleJobData;
+export interface BackupJobData {
+  type: JobType.BACKUP;
+  serverId: string;
+  backupId: string;
+}
+
+export type ServerJobData = ProvisionJobData | LifecycleJobData | BackupJobData;

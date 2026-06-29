@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { authenticateRequest, apiError, apiSuccess } from "@/lib/errors";
 import { addTicketMessageSchema } from "@astral/shared";
+import { createNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,13 @@ export async function POST(request: NextRequest, { params }: { params: { ticketI
   const newStatus = isInternal ? undefined : ticket.status === "OPEN" ? "IN_PROGRESS" : undefined;
   if (newStatus) {
     await db.ticket.update({ where: { id: ticket.id }, data: { status: newStatus } });
+  }
+
+  if (!isInternal) {
+    createNotification(ticket.userId, "TICKET_UPDATED" as never,
+      "Staff replied to your ticket",
+      `A staff member replied to your ticket "${ticket.subject}".`,
+      `/dashboard/tickets/${ticket.id}`).catch(() => {});
   }
 
   return apiSuccess({ id: message.id, body: message.body, isInternal, createdAt: message.createdAt.toISOString() }, 201);

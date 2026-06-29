@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { authenticateRequest, apiError, apiSuccess } from "@/lib/errors";
 import { addTicketMessageSchema } from "@astral/shared";
+import { createNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,19 @@ export async function POST(request: NextRequest, { params }: { params: { ticketI
     data: { ticketId: ticket.id, userId: auth.userId, body: parsed.data.body },
   });
 
-  await db.ticket.update({ where: { id: ticket.id }, data: { status: "WAITING_ON_CUSTOMER" } });
+  const newStatus = ticket.status === "RESOLVED" ? "OPEN" : ticket.status === "WAITING_ON_CUSTOMER" ? "IN_PROGRESS" : undefined;
+  const updateData: Record<string, unknown> = { updatedAt: new Date() };
+  if (newStatus) updateData.status = newStatus;
+  if (newStatus === "OPEN") updateData.resolvedAt = null;
+
+  await db.ticket.update({ where: { id: ticket.id }, data: updateData as never });
+
+  if (ticket.assignedUserId) {
+    createNotification(ticket.assignedUserId, "TICKET_UPDATED" as never,
+      "Customer replied",
+      `Customer replied to ticket "${ticket.subject}".`,
+      `/dashboard/admin/tickets/${ticket.id}`).catch(() => {});
+  }
 
   return apiSuccess({ id: message.id, body: message.body, createdAt: message.createdAt.toISOString() }, 201);
 }

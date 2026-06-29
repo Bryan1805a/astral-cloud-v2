@@ -48,7 +48,8 @@ export async function PUT(request: NextRequest, { params }: { params: { ticketId
   const data: Record<string, unknown> = {};
   if (status) data.status = status;
   if (priority) data.priority = priority;
-  if (assignedUserId !== undefined) data.assignedUserId = assignedUserId;
+  if (assignedUserId === "self") data.assignedUserId = auth.userId;
+  else if (assignedUserId !== undefined) data.assignedUserId = assignedUserId;
   if (category) data.category = category;
 
   if (Object.keys(data).length === 0) return apiError("VALIDATION_ERROR", "No fields to update.");
