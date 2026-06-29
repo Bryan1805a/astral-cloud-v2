@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { createResetToken } from "@/lib/auth";
+import { sendPasswordResetEmail } from "@/lib/email";
 import { apiError, apiSuccess } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,7 @@ export async function POST(request: NextRequest) {
 
   if (user) {
     const token = await createResetToken(user.id);
-    console.log(`[email] Password reset link for ${email}: /reset-password?token=${token}`);
+    sendPasswordResetEmail(user.email, token).catch((e) => console.error("Failed to send reset email:", e));
   }
 
   return apiSuccess({ message: "If an account with that email exists, a password reset link has been sent." });

@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { registerSchema } from "@astral/shared";
 import { db } from "@/lib/db";
 import { hashPassword, createVerificationToken } from "@/lib/auth";
+import { sendVerificationEmail } from "@/lib/email";
 import { apiError, apiSuccess } from "@/lib/errors";
 import { UserRole, UserStatus } from "@astral/shared";
 
@@ -84,7 +85,7 @@ export async function POST(request: NextRequest) {
     });
 
     const verifyToken = await createVerificationToken(user.id);
-    console.log(`[email] Verification link for ${user.email}: /verify-email?token=${verifyToken}`);
+    sendVerificationEmail(user.email, verifyToken).catch((e) => console.error("Failed to send verification email:", e));
 
     return apiSuccess(
       {

@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { authenticateRequest, apiError, apiSuccess, apiPaginated } from "@/lib/errors";
 import { createTicketSchema } from "@astral/shared";
+import { notifyTicketEvent } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +64,8 @@ export async function POST(request: NextRequest) {
       result: "SUCCESS", ipAddress: request.headers.get("x-forwarded-for") || "127.0.0.1",
     },
   });
+
+  notifyTicketEvent(auth.userId, ticket.subject, "created", ticket.id).catch(() => {});
 
   return apiSuccess({
     id: ticket.id, subject: ticket.subject, status: ticket.status,

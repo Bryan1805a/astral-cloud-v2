@@ -88,5 +88,15 @@ export async function handleProvisionJob(
     },
   });
 
+  await db.notification.create({
+    data: {
+      userId: server.userId,
+      type: "SERVER_CREATED",
+      title: "Server created",
+      body: `Your server "${server.hostname}" has been provisioned and is ready.`,
+      link: "/dashboard/servers",
+    },
+  }).catch(() => {});
+
   console.log(`[provision] Server ${serverId} provisioned: ${result.containerId} @ ${result.ipAddress}`);
 }

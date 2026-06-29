@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
+import { NotificationBell } from "@/components/notification-center";
 
 interface User {
   id: string;
@@ -91,6 +92,9 @@ export default function DashboardLayout({
           <Link href="/dashboard" className="text-lg font-bold tracking-tight">
             Astral Cloud
           </Link>
+          <div className="ml-auto">
+            <NotificationBell />
+          </div>
         </div>
 
         <nav className="flex-1 space-y-1 px-3 py-4">

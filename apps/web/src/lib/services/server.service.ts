@@ -3,6 +3,7 @@ import { ServerStatus, BillingModel } from "@astral/shared";
 import { db } from "@/lib/db";
 import { serverQueue, JobType } from "@/lib/queue";
 import { Prisma } from "@prisma/client";
+import { notifyServerEvent } from "@/lib/notifications";
 
 export class ServerLimitError extends Error {
   constructor() {
@@ -285,6 +286,8 @@ export async function startServer(serverId: string, userId: string, ipAddress: s
     },
   });
 
+  notifyServerEvent(userId, server.hostname, "started").catch(() => {});
+
   return server;
 }
 
@@ -324,6 +327,8 @@ export async function stopServer(serverId: string, userId: string, force: boolea
       ipAddress,
     },
   });
+
+  notifyServerEvent(userId, server.hostname, "stopped").catch(() => {});
 
   return server;
 }
@@ -365,6 +370,8 @@ export async function restartServer(serverId: string, userId: string, ipAddress:
     },
   });
 
+  notifyServerEvent(userId, server.hostname, "restarted").catch(() => {});
+
   return server;
 }
 
@@ -405,6 +412,8 @@ export async function deleteServer(serverId: string, userId: string, confirmHost
       ipAddress,
     },
   });
+
+  notifyServerEvent(userId, server.hostname, "deleted").catch(() => {});
 
   return server;
 }

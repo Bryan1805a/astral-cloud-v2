@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { stripe, IS_DEV_MODE } from "@/lib/stripe";
 import { getAuthToken, apiError, apiSuccess } from "@/lib/errors";
 import { verifyAccessToken } from "@/lib/auth";
+import { notifyPaymentEvent } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -144,6 +145,8 @@ export async function POST(request: NextRequest) {
           ipAddress: request.headers.get("x-forwarded-for") || "127.0.0.1",
         },
       });
+
+      notifyPaymentEvent(user.id, "completed", amount.toString()).catch(() => {});
 
       return apiSuccess({
         paymentId: payment.id,
