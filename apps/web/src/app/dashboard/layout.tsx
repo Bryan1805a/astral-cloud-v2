@@ -32,6 +32,7 @@ const ADMIN_ITEMS = [
   { href: "/dashboard/admin/users", label: "Users", icon: UsersIcon },
   { href: "/dashboard/admin/vouchers", label: "Vouchers", icon: VoucherIcon },
   { href: "/dashboard/admin/blog", label: "Blog", icon: BlogIcon },
+  { href: "/dashboard/admin/announcements", label: "Announcements", icon: AnnounceIcon },
   { href: "/dashboard/admin/audit-logs", label: "Audit Logs", icon: LogIcon },
 ];
 
@@ -44,6 +45,8 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [announcements, setAnnouncements] = useState<{ id: string; title: string; body: string; severity: string }[]>([]);
+  const [bannerDismissed, setBannerDismissed] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const token = localStorage.getItem("access_token");
@@ -66,6 +69,13 @@ export default function DashboardLayout({
       })
       .finally(() => setLoading(false));
   }, [router]);
+
+  useEffect(() => {
+    fetch("/api/announcements")
+      .then((r) => r.json())
+      .then((j) => { if (j.data) setAnnouncements(j.data); })
+      .catch(() => {});
+  }, []);
 
   async function handleLogout() {
     const token = localStorage.getItem("access_token");
@@ -164,7 +174,28 @@ export default function DashboardLayout({
         </div>
       </aside>
 
-      <main className="ml-56 flex-1 px-6 py-8">{children}</main>
+      <main className="ml-56 flex-1 px-6 py-8">
+        {announcements.filter((a) => !bannerDismissed[a.id]).map((a) => {
+          const bgColors: Record<string, string> = {
+            INFO: "border-blue-800 bg-blue-950/30 text-blue-400",
+            WARNING: "border-amber-800 bg-amber-950/30 text-amber-400",
+            CRITICAL: "border-red-800 bg-red-950/30 text-red-400",
+          };
+          return (
+            <div key={a.id} className={`mb-4 rounded-lg border px-4 py-3 text-sm ${bgColors[a.severity] || bgColors.INFO}`}>
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="font-semibold">{a.title}</span>
+                  {a.body && <span className="ml-2 opacity-80">{a.body}</span>}
+                </div>
+                <button onClick={() => setBannerDismissed((d) => ({ ...d, [a.id]: true }))}
+                  className="ml-3 flex-shrink-0 opacity-60 hover:opacity-100">&times;</button>
+              </div>
+            </div>
+          );
+        })}
+        {children}
+      </main>
     </div>
   );
 }
@@ -272,6 +303,14 @@ function UsersIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+    </svg>
+  );
+}
+
+function AnnounceIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 110-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38a.533.533 0 01-.683-.188c-.413-.627-.742-1.304-1.025-2.012m3.943-6.474c.688.06 1.386.09 2.09.09h.75a4.5 4.5 0 110 9h-.75c-.704 0-1.402.03-2.09.09m0-9.18a13.43 13.43 0 00-.985-2.783 1.066 1.066 0 01.463-1.511l.657-.38a.533.533 0 01.683.188c.413.627.742 1.304 1.025 2.012" />
     </svg>
   );
 }
