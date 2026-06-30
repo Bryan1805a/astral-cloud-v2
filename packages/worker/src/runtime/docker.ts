@@ -119,4 +119,31 @@ export class DockerRuntime implements ContainerRuntime {
     const fs = await import("fs/promises");
     await fs.unlink(backupId).catch(() => {});
   }
+
+  async createVolume(nodeEndpoint: string, name: string, _sizeGB: number): Promise<string> {
+    const docker = this.getClient(nodeEndpoint);
+    const volume = await docker.createVolume({ Name: name });
+    return volume.Name;
+  }
+
+  async attachVolume(nodeEndpoint: string, volumeId: string, containerId: string, devicePath: string): Promise<void> {
+    const docker = this.getClient(nodeEndpoint);
+    const container = docker.getContainer(containerId);
+    const volName = volumeId.includes("vol-") ? volumeId : `vol-${volumeId}`;
+    await container.exec({
+      Cmd: ["mount", devicePath, `/mnt/${volName}`],
+    }).catch(() => {});
+  }
+
+  async detachVolume(nodeEndpoint: string, volumeId: string): Promise<void> {
+    // Docker volumes detach automatically when unmounted
+    void nodeEndpoint;
+    void volumeId;
+  }
+
+  async deleteVolume(nodeEndpoint: string, volumeId: string): Promise<void> {
+    const docker = this.getClient(nodeEndpoint);
+    const vol = docker.getVolume(volumeId);
+    await vol.remove().catch(() => {});
+  }
 }

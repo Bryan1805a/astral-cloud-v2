@@ -13,6 +13,8 @@ export enum JobType {
   RESTART = "restart",
   DELETE = "delete",
   BACKUP = "backup",
+  VOLUME_CREATE = "volume-create",
+  VOLUME_DELETE = "volume-delete",
 }
 
 export interface ProvisionJobData {

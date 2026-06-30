@@ -51,4 +51,22 @@ export class MockRuntime implements ContainerRuntime {
   async deleteBackup(_nodeEndpoint: string, backupId: string): Promise<void> {
     console.log(`[mock] Deleting backup ${backupId}`);
   }
+
+  async createVolume(_nodeEndpoint: string, name: string, sizeGB: number): Promise<string> {
+    const id = `vol-mock-${name}-${sizeGB}`;
+    console.log(`[mock] Creating volume ${id} (${sizeGB}GB)`);
+    return id;
+  }
+
+  async attachVolume(_nodeEndpoint: string, volumeId: string, _containerId: string, devicePath: string): Promise<void> {
+    console.log(`[mock] Attaching volume ${volumeId} at ${devicePath}`);
+  }
+
+  async detachVolume(_nodeEndpoint: string, volumeId: string): Promise<void> {
+    console.log(`[mock] Detaching volume ${volumeId}`);
+  }
+
+  async deleteVolume(_nodeEndpoint: string, volumeId: string): Promise<void> {
+    console.log(`[mock] Deleting volume ${volumeId}`);
+  }
 }

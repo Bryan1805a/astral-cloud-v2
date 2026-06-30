@@ -43,4 +43,8 @@ export interface ContainerRuntime {
   createBackup(nodeEndpoint: string, containerId: string, backupPath: string): Promise<void>;
   restoreBackup(nodeEndpoint: string, backupId: string, targetContainerId: string): Promise<void>;
   deleteBackup(nodeEndpoint: string, backupId: string): Promise<void>;
+  createVolume(nodeEndpoint: string, name: string, sizeGB: number): Promise<string>;
+  attachVolume(nodeEndpoint: string, volumeId: string, containerId: string, devicePath: string): Promise<void>;
+  detachVolume(nodeEndpoint: string, volumeId: string): Promise<void>;
+  deleteVolume(nodeEndpoint: string, volumeId: string): Promise<void>;
 }
