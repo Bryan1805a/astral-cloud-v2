@@ -23,6 +23,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/floating-ips", label: "Floating IPs", icon: FloatingIpIcon },
   { href: "/dashboard/webhooks", label: "Webhooks", icon: WebhookIcon },
   { href: "/dashboard/tags", label: "Tags", icon: TagIcon },
+  { href: "/dashboard/ssh-keys", label: "SSH Keys", icon: SshKeyIcon },
   { href: "/dashboard/api-keys", label: "API Keys", icon: KeyIcon },
   { href: "/dashboard/security", label: "Security", icon: ShieldIcon },
   { href: "/dashboard/gdpr", label: "Data & Privacy", icon: PrivacyIcon },
@@ -229,6 +230,14 @@ function BillingIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
+    </svg>
+  );
+}
+
+function SshKeyIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
     </svg>
   );
 }
