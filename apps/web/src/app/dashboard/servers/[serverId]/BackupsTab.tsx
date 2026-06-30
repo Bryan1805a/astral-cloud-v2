@@ -84,6 +84,18 @@ export default function BackupsTab({ serverId }: { serverId: string }) {
     }
   }
 
+  async function handleRestoreBackup(backupId: string, label: string) {
+    if (!window.confirm(`Restore server from backup "${label}"? This will overwrite current data.`)) return;
+    setError("");
+    try {
+      await api.post(`/servers/${serverId}/backups/${backupId}/restore`);
+      setError("Restore started. Server will restart with restored data shortly.");
+      fetchBackups();
+    } catch (err: unknown) {
+      setError((err as { message?: string }).message || "Failed to restore backup");
+    }
+  }
+
   async function handleDeleteBackup(backupId: string) {
     setError("");
     try {
@@ -217,6 +229,10 @@ export default function BackupsTab({ serverId }: { serverId: string }) {
                     <td className="py-2 text-gray-400">{formatSize(b.sizeMB)}</td>
                     <td className="py-2 text-gray-500">{new Date(b.createdAt).toLocaleDateString()}</td>
                     <td className="py-2 text-right">
+                      {b.status === "AVAILABLE" && (
+                        <button onClick={() => handleRestoreBackup(b.id, b.label)}
+                          className="text-xs text-blue-400 hover:text-blue-300 mr-2">Restore</button>
+                      )}
                       {(b.status === "AVAILABLE" || b.status === "FAILED" || b.status === "EXPIRED") && (
                         <button onClick={() => handleDeleteBackup(b.id)}
                           className="text-xs text-red-400 hover:text-red-300">Delete</button>

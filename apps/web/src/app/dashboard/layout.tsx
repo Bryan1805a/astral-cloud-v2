@@ -58,6 +58,7 @@ export default function DashboardLayout({
   const [loading, setLoading] = useState(true);
   const [announcements, setAnnouncements] = useState<{ id: string; title: string; body: string; severity: string }[]>([]);
   const [bannerDismissed, setBannerDismissed] = useState<Record<string, boolean>>({});
+  const [showCookieBanner, setShowCookieBanner] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("access_token");
@@ -86,6 +87,7 @@ export default function DashboardLayout({
       .then((r) => r.json())
       .then((j) => { if (j.data) setAnnouncements(j.data); })
       .catch(() => {});
+    if (!localStorage.getItem("cookie_consent")) setShowCookieBanner(true);
   }, []);
 
   async function handleLogout() {
@@ -206,6 +208,19 @@ export default function DashboardLayout({
           );
         })}
         {children}
+        {showCookieBanner && (
+          <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-800 bg-gray-900 px-6 py-4">
+            <div className="mx-auto flex max-w-4xl items-center justify-between gap-4">
+              <p className="text-xs text-gray-400">
+                We use essential cookies for authentication and security. No tracking or advertising cookies.
+              </p>
+              <button onClick={() => { localStorage.setItem("cookie_consent", "true"); setShowCookieBanner(false); }}
+                className="rounded-lg bg-white px-4 py-1.5 text-xs font-semibold text-gray-900 hover:bg-gray-200 flex-shrink-0">
+                Got it
+              </button>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

@@ -62,6 +62,8 @@ export default function CreateServerPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FormErrors>({});
+  const [needsTerms, setNeedsTerms] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const [showCustom, setShowCustom] = useState(false);
   const [customVcpu, setCustomVcpu] = useState(1);
@@ -83,6 +85,7 @@ export default function CreateServerPage() {
         setImages(imagesData);
         setRegions(regionsData);
         setSSHKeys(keysData);
+        api.get<{ tosAccepted: boolean }>("/consent").then((c) => setNeedsTerms(!c.tosAccepted)).catch(() => {});
       } catch {
         setError("Failed to load server options. Please try again.");
       } finally {
@@ -112,6 +115,16 @@ export default function CreateServerPage() {
 
     if (imageId) body.imageId = imageId;
     if (sshKeyId) body.sshKeyId = sshKeyId;
+
+    if (needsTerms && !termsAccepted) {
+      setError("You must accept the Terms of Service and Privacy Policy.");
+      setSubmitting(false);
+      return;
+    }
+
+    if (termsAccepted) {
+      api.post("/consent", { termsType: "TOS", version: "1.0" }).catch(() => {});
+    }
 
     try {
       await api.post("/servers", body);
@@ -358,6 +371,18 @@ export default function CreateServerPage() {
             <p className="mt-1 text-sm text-gray-500">No SSH keys configured.</p>
           )}
         </div>
+
+        {needsTerms && (
+          <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-4">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)}
+                className="rounded border-gray-600 bg-gray-800" />
+              <span className="text-sm text-gray-300">
+                I accept the <span className="text-white font-medium">Terms of Service</span> and <span className="text-white font-medium">Privacy Policy</span>
+              </span>
+            </label>
+          </div>
+        )}
 
         <div className="flex gap-4 pt-4">
           <button
