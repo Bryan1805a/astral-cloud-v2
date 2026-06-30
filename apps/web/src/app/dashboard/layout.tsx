@@ -21,6 +21,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/referrals", label: "Referrals", icon: ReferralIcon },
   { href: "/dashboard/volumes", label: "Volumes", icon: VolumeIcon },
   { href: "/dashboard/floating-ips", label: "Floating IPs", icon: FloatingIpIcon },
+  { href: "/dashboard/private-networks", label: "Private Networks", icon: NetworkIcon },
   { href: "/dashboard/webhooks", label: "Webhooks", icon: WebhookIcon },
   { href: "/dashboard/tags", label: "Tags", icon: TagIcon },
   { href: "/dashboard/ssh-keys", label: "SSH Keys", icon: SshKeyIcon },
@@ -295,6 +296,14 @@ function WebhookIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+    </svg>
+  );
+}
+
+function NetworkIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9.348 14.651a3.75 3.75 0 010-5.303m5.304 0a3.75 3.75 0 010 5.303m-7.425 2.122a6.75 6.75 0 010-9.546m9.546 0a6.75 6.75 0 010 9.546M5.106 18.894c-3.808-3.808-3.808-9.98 0-13.789m13.788 0c3.808 3.808 3.808 9.981 0 13.79M12 12h.008v.007H12V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
     </svg>
   );
 }
