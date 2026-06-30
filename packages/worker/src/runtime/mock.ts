@@ -69,4 +69,10 @@ export class MockRuntime implements ContainerRuntime {
   async deleteVolume(_nodeEndpoint: string, volumeId: string): Promise<void> {
     console.log(`[mock] Deleting volume ${volumeId}`);
   }
+
+  async createSnapshot(_nodeEndpoint: string, containerId: string, snapshotName: string): Promise<string> {
+    const id = `snap-${snapshotName}`;
+    console.log(`[mock] Creating snapshot ${id} from ${containerId}`);
+    return id;
+  }
 }

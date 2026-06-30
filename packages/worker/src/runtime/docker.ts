@@ -146,4 +146,11 @@ export class DockerRuntime implements ContainerRuntime {
     const vol = docker.getVolume(volumeId);
     await vol.remove().catch(() => {});
   }
+
+  async createSnapshot(nodeEndpoint: string, containerId: string, snapshotName: string): Promise<string> {
+    const docker = this.getClient(nodeEndpoint);
+    const container = docker.getContainer(containerId);
+    const image = await container.commit({ repo: snapshotName });
+    return image.Id || snapshotName;
+  }
 }

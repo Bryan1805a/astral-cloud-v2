@@ -63,7 +63,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-type Tab = "overview" | "firewall" | "dns" | "backups";
+type Tab = "overview" | "firewall" | "dns" | "backups" | "snapshots";
 
 export default function ServerDetailPage() {
   const params = useParams();
@@ -151,6 +151,7 @@ export default function ServerDetailPage() {
     { key: "firewall", label: "Firewall" },
     { key: "dns", label: "DNS" },
     { key: "backups", label: "Backups" },
+    { key: "snapshots", label: "Snapshots" },
   ];
 
   return (
@@ -218,6 +219,7 @@ export default function ServerDetailPage() {
         {activeTab === "firewall" && <FirewallTab serverId={serverId} />}
         {activeTab === "dns" && <DnsTab serverId={serverId} />}
         {activeTab === "backups" && <BackupsTab serverId={serverId} />}
+        {activeTab === "snapshots" && <SnapshotsTab serverId={serverId} />}
       </div>
     </div>
   );
@@ -672,6 +674,66 @@ function DnsTab({ serverId }: { serverId: string }) {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SnapshotsTab({ serverId }: { serverId: string }) {
+  const [snapshots, setSnapshots] = useState<{ id: string; label: string; sizeGB: number; createdAt: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  const fetchSnapshots = useCallback(async () => {
+    try { setSnapshots(await api.get<never>(`/servers/${serverId}/snapshots`)); }
+    catch { /* noop */ }
+    finally { setLoading(false); }
+  }, [serverId]);
+
+  useEffect(() => { fetchSnapshots(); }, [fetchSnapshots]);
+
+  async function handleCreate() {
+    setCreating(true); setError("");
+    try { await api.post(`/servers/${serverId}/snapshots`); fetchSnapshots(); }
+    catch (err: unknown) { setError((err as { message?: string }).message || "Failed"); }
+    finally { setCreating(false); }
+  }
+
+  async function handleDelete(id: string) {
+    if (!window.confirm("Delete this snapshot?")) return;
+    try { await api.del(`/snapshots/${id}`); fetchSnapshots(); }
+    catch (err: unknown) { setError((err as { message?: string }).message || "Failed"); }
+  }
+
+  if (loading) return <p className="text-gray-400">Loading snapshots...</p>;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-semibold text-gray-300">Snapshots</h3>
+        <button onClick={handleCreate} disabled={creating}
+          className="rounded-lg border border-gray-700 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-gray-800 disabled:opacity-50">
+          {creating ? "Creating..." : "Create Snapshot"}
+        </button>
+      </div>
+      {error && <div className="mb-4 rounded-lg border border-red-800 bg-red-950/50 px-4 py-3 text-sm text-red-400">{error}</div>}
+      <p className="text-xs text-gray-500 mb-3">Stop the server first, then create a snapshot to capture its current state.</p>
+      {snapshots.length === 0 ? (
+        <p className="text-sm text-gray-500">No snapshots yet.</p>
+      ) : (
+        <div className="space-y-2">
+          {snapshots.map((s) => (
+            <div key={s.id} className="flex items-center justify-between rounded-lg border border-gray-800 bg-gray-900/50 px-4 py-3">
+              <div>
+                <span className="text-sm text-gray-200">{s.label}</span>
+                <span className="ml-3 text-xs text-gray-500">{s.sizeGB} GB · {new Date(s.createdAt).toLocaleDateString()}</span>
+              </div>
+              <button onClick={() => handleDelete(s.id)}
+                className="rounded border border-red-800 px-2 py-1 text-xs text-red-400 hover:bg-red-950/30">Delete</button>
+            </div>
+          ))}
         </div>
       )}
     </div>

@@ -47,4 +47,5 @@ export interface ContainerRuntime {
   attachVolume(nodeEndpoint: string, volumeId: string, containerId: string, devicePath: string): Promise<void>;
   detachVolume(nodeEndpoint: string, volumeId: string): Promise<void>;
   deleteVolume(nodeEndpoint: string, volumeId: string): Promise<void>;
+  createSnapshot(nodeEndpoint: string, containerId: string, snapshotName: string): Promise<string>;
 }

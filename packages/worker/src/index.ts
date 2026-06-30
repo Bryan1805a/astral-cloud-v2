@@ -10,6 +10,7 @@ import {
 } from "./jobs/lifecycle.job";
 import { handleBackupJob } from "./jobs/backup.server.job";
 import { handleVolumeCreateJob, handleVolumeDeleteJob } from "./jobs/volume.job";
+import { handleSnapshotJob } from "./jobs/snapshot.job";
 
 const REDIS_URL = process.env.REDIS_URL || "redis://redis:6379";
 const CONTAINER_RUNTIME_DRIVER = process.env.CONTAINER_RUNTIME_DRIVER || "mock";
@@ -55,6 +56,12 @@ const worker = new Worker(
         if (volumeId) await handleVolumeDeleteJob(runtime, volumeId);
         else console.error("[worker] Volume delete job missing volumeId");
         break;
+      case "snapshot": {
+        const { snapshotId: sid } = job.data as { snapshotId?: string };
+        if (serverId && sid) await handleSnapshotJob(runtime, serverId, sid);
+        else console.error("[worker] Snapshot job missing IDs");
+        break;
+      }
       default:
         console.error(`[worker] Unknown job type: ${type}`);
     }
