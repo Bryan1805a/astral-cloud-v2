@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import type { ContainerRuntime } from "../runtime/types";
+import { dispatchWebhookEvent } from "./webhook.dispatch";
 
 const db = new PrismaClient();
 
@@ -67,9 +68,17 @@ export async function handleBackupJob(
 
     await txNotification(server.userId, server.hostname, server.id, backupId);
 
+    dispatchWebhookEvent(server.userId, "backup.completed", {
+      serverId: server.id, hostname: server.hostname, backupId,
+    }).catch(() => {});
+
     console.log(`[backup] Backup ${backupId} created for server ${serverId}`);
   } catch (error) {
     console.error(`[backup] Failed to create backup ${backupId}:`, error);
+
+    dispatchWebhookEvent(server.userId, "backup.failed", {
+      serverId: server.id, hostname: server.hostname, backupId,
+    }).catch(() => {});
 
     await db.backup.update({ where: { id: backupId }, data: { status: "FAILED" } });
     await db.serverInstance.update({

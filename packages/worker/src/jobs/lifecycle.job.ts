@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import type { ContainerRuntime } from "../runtime/types";
+import { dispatchWebhookEvent } from "./webhook.dispatch";
 
 const db = new PrismaClient();
 
@@ -29,6 +30,9 @@ export async function handleStartJob(runtime: ContainerRuntime, serverId: string
       where: { id: serverId },
       data: { status: "ACTIVE", lockedBy: null, lockedAt: null },
     });
+    dispatchWebhookEvent(server.userId, "server.started", {
+      serverId: server.id, hostname: server.hostname, ipAddress: server.ipAddress,
+    }).catch(() => {});
     console.log(`[start] Server ${serverId} started`);
   } catch (error) {
     console.error(`[start] Failed to start server ${serverId}:`, error);
@@ -65,6 +69,9 @@ export async function handleStopJob(runtime: ContainerRuntime, serverId: string)
       where: { id: serverId },
       data: { status: "STOPPED", lockedBy: null, lockedAt: null },
     });
+    dispatchWebhookEvent(server.userId, "server.stopped", {
+      serverId: server.id, hostname: server.hostname, ipAddress: server.ipAddress,
+    }).catch(() => {});
     console.log(`[stop] Server ${serverId} stopped`);
   } catch (error) {
     console.error(`[stop] Graceful stop failed for ${serverId}, trying force:`, error);
@@ -74,6 +81,9 @@ export async function handleStopJob(runtime: ContainerRuntime, serverId: string)
         where: { id: serverId },
         data: { status: "STOPPED", lockedBy: null, lockedAt: null },
       });
+      dispatchWebhookEvent(server.userId, "server.stopped", {
+        serverId: server.id, hostname: server.hostname,
+      }).catch(() => {});
     } catch (forceError) {
       console.error(`[stop] Force stop also failed for ${serverId}:`, forceError);
       await db.serverInstance.update({
@@ -110,6 +120,9 @@ export async function handleRestartJob(runtime: ContainerRuntime, serverId: stri
       where: { id: serverId },
       data: { status: "ACTIVE", lockedBy: null, lockedAt: null },
     });
+    dispatchWebhookEvent(server.userId, "server.started", {
+      serverId: server.id, hostname: server.hostname, ipAddress: server.ipAddress,
+    }).catch(() => {});
     console.log(`[restart] Server ${serverId} restarted`);
   } catch (error) {
     console.error(`[restart] Failed to restart server ${serverId}:`, error);
@@ -165,6 +178,10 @@ export async function handleDeleteJob(runtime: ContainerRuntime, serverId: strin
         },
       });
     });
+
+    dispatchWebhookEvent(server.userId, "server.deleted", {
+      serverId: server.id, hostname: server.hostname,
+    }).catch(() => {});
 
     console.log(`[delete] Server ${serverId} deleted and resources released`);
   } catch (error) {

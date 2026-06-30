@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import type { ContainerRuntime } from "../runtime/types";
+import { dispatchWebhookEvent } from "./webhook.dispatch";
 
 const db = new PrismaClient();
 
@@ -96,6 +97,11 @@ export async function handleProvisionJob(
       body: `Your server "${server.hostname}" has been provisioned and is ready.`,
       link: "/dashboard/servers",
     },
+  }).catch(() => {});
+
+  dispatchWebhookEvent(server.userId, "server.created", {
+    serverId: server.id, hostname: server.hostname, ipAddress: result.ipAddress,
+    plan: { vcpu: server.vcpu, ramMB: server.ramMB, diskGB: server.diskGB },
   }).catch(() => {});
 
   console.log(`[provision] Server ${serverId} provisioned: ${result.containerId} @ ${result.ipAddress}`);
