@@ -16,17 +16,24 @@ interface Server {
   createdAt: string;
 }
 
+interface ActivityEvent {
+  id: string; action: string; label: string;
+  targetType: string; targetId: string;
+  result: string; createdAt: string;
+}
+
 export default function DashboardOverviewPage() {
   const [servers, setServers] = useState<Server[]>([]);
+  const [activity, setActivity] = useState<ActivityEvent[]>([]);
 
   useEffect(() => {
     const token = localStorage.getItem("access_token");
-    fetch("/api/servers", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
-      .then((json) => setServers(json.data || []))
-      .catch(() => {});
+    Promise.all([
+      fetch("/api/servers", { headers: { Authorization: `Bearer ${token}` } })
+        .then((r) => r.json()).then((j) => setServers(j.data || [])),
+      fetch("/api/activity", { headers: { Authorization: `Bearer ${token}` } })
+        .then((r) => r.json()).then((j) => setActivity(j.data || [])),
+    ]).catch(() => {});
   }, []);
 
   const activeCount = servers.filter((s) => s.status === "ACTIVE").length;
@@ -97,6 +104,24 @@ export default function DashboardOverviewPage() {
               </div>
             </Link>
           ))}
+        </div>
+      )}
+
+      {activity.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-lg font-semibold">Recent Activity</h2>
+          <div className="mt-4 space-y-1">
+            {activity.map((event) => (
+              <div key={event.id} className="flex items-center gap-3 rounded px-3 py-2 text-sm hover:bg-gray-900/30">
+                <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${
+                  event.result === "SUCCESS" ? "bg-emerald-400" : "bg-red-400"
+                }`} />
+                <span className="text-gray-300">{event.label}</span>
+                <span className="text-gray-600 text-xs flex-1" />
+                <span className="text-gray-600 text-xs">{new Date(event.createdAt).toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
