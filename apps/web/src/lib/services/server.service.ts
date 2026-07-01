@@ -375,13 +375,12 @@ export async function restartServer(serverId: string, userId: string, ipAddress:
   return server;
 }
 
-export async function deleteServer(serverId: string, userId: string, confirmHostname: string, ipAddress: string) {
+export async function deleteServer(serverId: string, userId: string, ipAddress: string) {
   const server = await db.serverInstance.findFirst({
     where: { id: serverId, userId, deletedAt: null },
   });
 
   if (!server) throw new Error("Server not found");
-  if (server.hostname !== confirmHostname) throw new Error("Hostname confirmation mismatch");
   if (server.status !== ServerStatus.STOPPED) {
     throw new InvalidStateError("Server must be in STOPPED state to delete");
   }
