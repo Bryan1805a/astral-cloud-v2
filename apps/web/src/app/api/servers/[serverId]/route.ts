@@ -76,7 +76,8 @@ export async function DELETE(
     return apiError("TOKEN_EXPIRED", "Access token has expired.");
   }
 
-  const body = await request.json();
+  let body: Record<string, string> = {};
+  try { body = await request.json(); } catch { /* no body */ }
   const ip = request.headers.get("x-forwarded-for") || "127.0.0.1";
 
   try {

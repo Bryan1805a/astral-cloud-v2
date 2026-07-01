@@ -36,6 +36,13 @@ export async function POST(request: NextRequest) {
       data: { message: "Logged out successfully." },
     });
 
+    response.cookies.set("access_token", "", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/",
+      maxAge: 0,
+    });
     response.cookies.set("refresh_token", "", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
