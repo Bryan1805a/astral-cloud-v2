@@ -1,5 +1,4 @@
-import { PrismaClient } from "@prisma/client";
-
+const { PrismaClient } = require("@prisma/client");
 const db = new PrismaClient();
 
 async function seed() {
@@ -8,13 +7,9 @@ async function seed() {
   const region = await db.region.upsert({
     where: { slug: "local" },
     update: {},
-    create: {
-      name: "Local",
-      slug: "local",
-      isActive: true,
-    },
+    create: { name: "Local", slug: "local", isActive: true },
   });
-  console.log(`  Region: ${region.name} (${region.id})`);
+  console.log("  Region: " + region.name + " (" + region.id + ")");
 
   const node = await db.node.upsert({
     where: { id: "00000000-0000-0000-0000-000000000001" },
@@ -30,25 +25,25 @@ async function seed() {
       totalDiskGB: 500,
     },
   });
-  console.log(`  Node: ${node.name} (${node.id})`);
+  console.log("  Node: " + node.name + " (" + node.id + ")");
 
-  const ipCount = await db.ipAddress.count({ where: { nodeId: node.id } });
+  var ipCount = await db.ipAddress.count({ where: { nodeId: node.id } });
   if (ipCount === 0) {
-    for (let i = 1; i <= 20; i++) {
+    for (var i = 1; i <= 20; i++) {
       await db.ipAddress.create({
         data: {
           nodeId: node.id,
-          address: `10.0.${i}.${i + 100}`,
+          address: "10.0." + i + "." + (i + 100),
           type: "IPv4",
         },
       });
     }
     console.log("  IPs: 20 addresses created");
   } else {
-    console.log(`  IPs: ${ipCount} already exist`);
+    console.log("  IPs: " + ipCount + " already exist");
   }
 
-  const plan = await db.serverPlan.upsert({
+  var plan = await db.serverPlan.upsert({
     where: { slug: "nano" },
     update: {},
     create: {
@@ -63,9 +58,9 @@ async function seed() {
       isActive: true,
     },
   });
-  console.log(`  Plan: ${plan.name} (${plan.id})`);
+  console.log("  Plan: " + plan.name + " (" + plan.id + ")");
 
-  const image = await db.imageTemplate.upsert({
+  var image = await db.imageTemplate.upsert({
     where: { slug: "ubuntu-24-04-ssh" },
     update: {},
     create: {
@@ -79,14 +74,9 @@ async function seed() {
       isActive: true,
     },
   });
-  console.log(`  Image: ${image.name} (${image.id})`);
+  console.log("  Image: " + image.name + " (" + image.id + ")");
 
   console.log("Seed complete.");
 }
 
-seed()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(() => db.$disconnect());
+seed().catch(function (e) { console.error(e); process.exit(1); }).finally(function () { return db.$disconnect(); });

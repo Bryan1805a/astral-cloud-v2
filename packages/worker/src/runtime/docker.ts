@@ -3,7 +3,17 @@ import type { ContainerRuntime, CreateServerParams, CreateServerResult, ServerSt
 
 export class DockerRuntime implements ContainerRuntime {
   private getClient(endpoint: string): Docker {
-    return new Docker({ socketPath: endpoint.replace("unix://", "") });
+    if (endpoint.startsWith("unix://")) {
+      return new Docker({ socketPath: endpoint.replace("unix://", "") });
+    }
+    if (endpoint.startsWith("tcp://")) {
+      const url = new URL(endpoint);
+      return new Docker({
+        host: url.hostname,
+        port: url.port || "2375",
+      });
+    }
+    return new Docker({ socketPath: endpoint });
   }
 
   async createServer(nodeEndpoint: string, params: CreateServerParams): Promise<CreateServerResult> {
@@ -21,25 +31,29 @@ export class DockerRuntime implements ContainerRuntime {
       HostConfig: {
         CpuShares: params.vcpu * 1024,
         Memory: params.ramMB * 1024 * 1024,
-        DiskQuota: params.diskGB * 1024 * 1024 * 1024,
         PortBindings: {
           "22/tcp": [{ HostPort: "0" }],
         },
-        CapDrop: ["ALL"],
+        CapDrop: ["NET_RAW", "SYS_MODULE", "SYS_RAWIO", "SYS_PTRACE", "SYSLOG"],
+        SecurityOpt: ["no-new-privileges:true"],
       },
       Env: [
         `ROOT_PASSWORD=${params.rootPassword || ""}`,
         params.sshPublicKey ? `SSH_PUBLIC_KEY=${params.sshPublicKey}` : "",
         params.cloudInitScript ? `CLOUD_INIT_SCRIPT=${params.cloudInitScript}` : "",
       ].filter(Boolean),
+      ExposedPorts: {
+        "22/tcp": {},
+      },
     });
 
     await container.start();
 
     const data = await container.inspect();
-    const ipAddress = data.NetworkSettings?.IPAddress || "0.0.0.0";
+    const ports = data.NetworkSettings?.Ports;
+    const hostPort = ports?.["22/tcp"]?.[0]?.HostPort || "0";
 
-    return { containerId: data.Id, ipAddress };
+    return { containerId: data.Id, ipAddress: `localhost:${hostPort}` };
   }
 
   async startServer(nodeEndpoint: string, containerId: string): Promise<void> {
@@ -78,6 +92,7 @@ export class DockerRuntime implements ContainerRuntime {
       const data = await container.inspect();
       return {
         running: data.State.Running,
+        containerId: data.Id,
         ipAddress: data.NetworkSettings?.IPAddress,
         state: data.State.Status,
       };
@@ -89,9 +104,10 @@ export class DockerRuntime implements ContainerRuntime {
   async getNodeResources(nodeEndpoint: string): Promise<NodeResources> {
     const docker = this.getClient(nodeEndpoint);
     const info = await docker.info();
+    const memTotal = info.MemTotal || 0;
     return {
       totalVcpu: info.NCPU,
-      totalRamMB: Math.floor(info.MemTotal / (1024 * 1024)),
+      totalRamMB: Math.floor(memTotal / (1024 * 1024)),
       totalDiskGB: 0,
       usedVcpu: 0,
       usedRamMB: 0,
@@ -136,7 +152,6 @@ export class DockerRuntime implements ContainerRuntime {
   }
 
   async detachVolume(nodeEndpoint: string, volumeId: string): Promise<void> {
-    // Docker volumes detach automatically when unmounted
     void nodeEndpoint;
     void volumeId;
   }
