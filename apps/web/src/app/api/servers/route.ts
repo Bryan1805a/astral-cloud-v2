@@ -100,6 +100,7 @@ export async function POST(request: NextRequest) {
         hostname: server.hostname,
         status: server.status,
         billingModel: server.billingModel,
+        rootPassword: server.rootPassword || undefined,
         createdAt: server.createdAt.toISOString(),
       },
       202

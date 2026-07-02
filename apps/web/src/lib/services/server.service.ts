@@ -40,6 +40,11 @@ export class InvalidStateError extends Error {
   }
 }
 
+function generatePassword(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  return Array.from({ length: 16 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+}
+
 export async function createServer(userId: string, input: CreateServerInput, ipAddress: string) {
   const parsed = createServerSchema.safeParse(input);
   if (!parsed.success) {
@@ -138,6 +143,8 @@ export async function createServer(userId: string, input: CreateServerInput, ipA
 
       if (!freeIp) continue;
 
+      const rootPassword = data.sshKeyId ? undefined : generatePassword();
+
       const serverRecord = await tx.serverInstance.create({
         data: {
           userId,
@@ -155,6 +162,7 @@ export async function createServer(userId: string, input: CreateServerInput, ipA
           diskGB,
           billingModel: data.billingModel,
           cloudInitScript: data.cloudInitScript || undefined,
+          rootPassword,
         },
       });
 

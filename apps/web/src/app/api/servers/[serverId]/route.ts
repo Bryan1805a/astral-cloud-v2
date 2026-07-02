@@ -45,6 +45,7 @@ export async function GET(
     region: server.region,
     node: server.node,
     sshKey: server.sshKey,
+    rootPassword: server.rootPassword || undefined,
     snapshot: null,
     billingModel: server.billingModel,
     vcpu: server.vcpu,
